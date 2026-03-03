@@ -1,1 +1,158 @@
-# nitro-racer
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Nitro - HTML Car Game</title>
+    <style>
+        body {
+            margin: 0;
+            background: #222;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            background: #333;
+            border: 4px solid #555;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .ui {
+            margin-top: 10px;
+            text-align: center;
+        }
+        h1 { margin: 5px; color: #ffeb3b; }
+    </style>
+</head>
+<body>
+
+    <h1>RETRO NITRO</h1>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="ui">
+        <div id="score">Score: 0</div>
+        <p>Use <b>LEFT</b> and <b>RIGHT</b> arrows to dodge!</p>
+        <button id="startBtn" style="padding: 10px 20px; cursor: pointer;">Start Game</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const startBtn = document.getElementById('startBtn');
+
+        canvas.width = 300;
+        canvas.height = 500;
+
+        // Game State
+        let gameRunning = false;
+        let score = 0;
+        let speed = 5;
+        let player = { x: 125, y: 400, w: 50, h: 80 };
+        let enemies = [];
+        let roadOffset = 0;
+
+        // Controls
+        const keys = {};
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        function createEnemy() {
+            const lanes = [25, 125, 225];
+            const lane = lanes[Math.floor(Math.random() * lanes.length)];
+            enemies.push({ x: lane, y: -100, w: 50, h: 80, color: `hsl(${Math.random() * 360}, 70%, 50%)` });
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = "#ff5722"; // Red Player Car
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+            // Details
+            ctx.fillStyle = "#000";
+            ctx.fillRect(player.x + 5, player.y + 10, 10, 15); // Windshield
+            ctx.fillRect(player.x + 35, player.y + 10, 10, 15);
+        }
+
+        function drawEnemy(en) {
+            ctx.fillStyle = en.color;
+            ctx.fillRect(en.x, en.y, en.w, en.h);
+        }
+
+        function drawRoad() {
+            // Road lines
+            ctx.strokeStyle = "#fff";
+            ctx.setLineDash([20, 20]);
+            ctx.lineDashOffset = -roadOffset;
+            ctx.lineWidth = 4;
+            
+            ctx.beginPath();
+            ctx.moveTo(100, 0); ctx.lineTo(100, 500);
+            ctx.moveTo(200, 0); ctx.lineTo(200, 500);
+            ctx.stroke();
+            
+            roadOffset += speed;
+        }
+
+        function update() {
+            if (!gameRunning) return;
+
+            // Move Player
+            if (keys['ArrowLeft'] && player.x > 0) player.x -= 7;
+            if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += 7;
+
+            // Move Enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                enemies[i].y += speed;
+
+                // Collision Check
+                if (player.x < enemies[i].x + enemies[i].w &&
+                    player.x + player.w > enemies[i].x &&
+                    player.y < enemies[i].y + enemies[i].h &&
+                    player.y + player.h > enemies[i].y) {
+                    gameOver();
+                }
+
+                // Remove off-screen enemies
+                if (enemies[i].y > canvas.height) {
+                    enemies.splice(i, 1);
+                    score++;
+                    scoreEl.innerText = `Score: ${score}`;
+                    if (score % 5 === 0) speed += 0.5; // Gradually harder
+                }
+            }
+
+            // Spawn enemies
+            if (Math.random() < 0.02) createEnemy();
+
+            render();
+            requestAnimationFrame(update);
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawRoad();
+            drawPlayer();
+            enemies.forEach(drawEnemy);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            alert(`CRASH! Final Score: ${score}`);
+            location.reload(); // Simple reset
+        }
+
+        startBtn.onclick = () => {
+            if (!gameRunning) {
+                gameRunning = true;
+                startBtn.style.display = 'none';
+                update();
+            }
+        };
+
+        render(); // Initial draw
+    </script>
+</body>
