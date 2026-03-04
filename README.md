@@ -4,7 +4,7 @@
     <title>Nitro Racer: Garage Edition</title>
     <style>
         body {
-            background-color: #111;
+            background-color: #000;
             display: flex;
             justify-content: center;
             align-items: center;
