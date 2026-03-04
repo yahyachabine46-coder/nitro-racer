@@ -1,257 +1,163 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nitro Racer</title>
+    <title>Nitro Racer: Garage Edition</title>
     <style>
         body {
-            margin: 0;
-            background: #0a0a0a;
-            color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #111;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
             overflow: hidden;
         }
 
-        #game-container {
+        #game-wrapper {
             position: relative;
-            width: 350px;
+            width: 360px;
             height: 600px;
-            border: 4px solid #333;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            overflow: hidden;
+            border: 4px solid #222;
             background: #000;
         }
 
-        canvas {
-            display: block;
-            border-radius: 11px;
-        }
+        canvas { display: block; }
 
-        #overlay {
+        #menu {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            border-radius: 11px;
             z-index: 10;
+            padding-top: 40px;
         }
 
-        h1 {
-            color: #00ccff;
-            font-size: 32px;
-            letter-spacing: 4px;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            text-shadow: 0 0 10px #00ccff;
+        .garage-box {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 15px;
+            width: 80%;
+            margin-top: 20px;
+            border: 1px solid #333;
+            text-align: center;
         }
 
-        .line {
-            width: 150px;
-            height: 2px;
-            background: #fff;
-            margin-bottom: 30px;
+        h1 { color: #00f2ff; margin: 0; text-shadow: 0 0 10px #00f2ff; font-size: 28px; }
+
+        label { display: block; margin: 10px 0 5px; font-size: 12px; color: #aaa; text-transform: uppercase; }
+
+        input[type="color"] {
+            width: 100%; height: 40px; border: none; cursor: pointer; background: none;
+        }
+
+        select {
+            width: 100%; padding: 8px; background: #333; color: white; border: none; border-radius: 5px;
         }
 
         button {
+            background: #ff00ff;
+            color: white;
+            border: none;
             padding: 15px 40px;
             font-size: 18px;
             font-weight: bold;
-            color: white;
-            background: #ff00ff;
-            border: none;
             border-radius: 50px;
             cursor: pointer;
             box-shadow: 0 0 20px #ff00ff;
-            transition: transform 0.2s;
-            text-transform: uppercase;
+            margin-top: 25px;
+            transition: 0.2s;
         }
 
-        button:hover {
-            transform: scale(1.05);
-        }
-
-        .controls-hint {
-            margin-top: 20px;
-            font-size: 12px;
-            color: #888;
-            letter-spacing: 1px;
-        }
+        button:hover { transform: scale(1.05); }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <canvas id="gameCanvas" width="350" height="600"></canvas>
+<div id="game-wrapper">
+    <canvas id="raceCanvas" width="360" height="600"></canvas>
     
-    <div id="overlay">
-        <h1>Nitro Racer</h1>
-        <div class="line"></div>
-        <button id="startBtn">Start Engine</button>
-        <div class="controls-hint">ARROWS or TOUCH to drive</div>
+    <div id="menu">
+        <h1>NITRO GARAGE</h1>
+        
+        <div class="garage-box">
+            <label>Paint Job</label>
+            <input type="color" id="carColor" value="#ff00ff">
+            
+            <label>Body Style</label>
+            <select id="decalStyle">
+                <option value="none">Standard</option>
+                <option value="stripes">Racing Stripes</option>
+                <option value="carbon">Carbon Fiber</option>
+            </select>
+
+            <label>Underglow Intensity</label>
+            <input type="range" id="glowPower" min="0" max="40" value="20">
+        </div>
+
+        <button id="startBtn">START ENGINE</button>
     </div>
 </div>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
+    const canvas = document.getElementById('raceCanvas');
     const ctx = canvas.getContext('2d');
-    const overlay = document.getElementById('overlay');
+    const menu = document.getElementById('menu');
     const startBtn = document.getElementById('startBtn');
+    
+    // Customization Inputs
+    const colorInput = document.getElementById('carColor');
+    const decalInput = document.getElementById('decalStyle');
+    const glowInput = document.getElementById('glowPower');
 
-    // Game Constants
-    const LANES = [50, 150, 250];
-    const CAR_WIDTH = 50;
-    const CAR_HEIGHT = 90;
-
-    // Game State
-    let gameActive = false;
+    const LANES = [70, 180, 290];
+    let playerLane = 1;
     let score = 0;
-    let bestScore = localStorage.getItem('nitroBest') || 0;
-    let player = { lane: 1, x: LANES[1], y: 480 };
     let enemies = [];
-    let speed = 5;
-    let frame = 0;
+    let gameRunning = false;
+    let speed = 6;
+    let timeTick = 0;
 
-    function init() {
-        score = 0;
-        speed = 5;
-        enemies = [];
-        player.lane = 1;
-        player.x = LANES[player.lane];
-        gameActive = true;
-        overlay.style.display = 'none';
-        animate();
-    }
-
-    function drawCar(x, y, color, isPlayer = false) {
+    function drawCar(x, y, color, isPlayer) {
         ctx.save();
-        ctx.shadowBlur = 15;
+        
+        // Underglow
+        const glowStr = isPlayer ? glowInput.value : 10;
+        ctx.shadowBlur = glowStr;
         ctx.shadowColor = color;
         
         // Body
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.roundRect(x - CAR_WIDTH/2, y, CAR_WIDTH, CAR_HEIGHT, 8);
+        ctx.roundRect(x - 25, y, 50, 85, 8);
         ctx.fill();
+        ctx.shadowBlur = 0;
 
-        // Windshield
-        ctx.fillStyle = '#111';
-        ctx.fillRect(x - 15, y + 15, 30, 20);
+        // Decals for Player
+        if (isPlayer) {
+            if (decalInput.value === 'stripes') {
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fillRect(x - 15, y, 10, 85);
+                ctx.fillRect(x + 5, y, 10, 85);
+            } else if (decalInput.value === 'carbon') {
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                for(let i=0; i<85; i+=4) ctx.fillRect(x-25, y+i, 50, 1);
+            }
+        }
 
-        // Tail lights (red)
+        // Windows
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(x - 18, y + 15, 36, 20);
+
+        // Lights
         ctx.fillStyle = '#ff0000';
-        ctx.fillRect(x - 20, y + CAR_HEIGHT - 5, 10, 5);
-        ctx.fillRect(x + 10, y + CAR_HEIGHT - 5, 10, 5);
+        ctx.fillRect(x - 20, y + 78, 8, 4);
+        ctx.fillRect(x + 12, y + 78, 8, 4);
         
         ctx.restore();
-    }
-
-    function update() {
-        if (!gameActive) return;
-
-        frame++;
-        if (frame % 60 === 0) {
-            let lane = Math.floor(Math.random() * 3);
-            enemies.push({ x: LANES[lane], y: -100 });
-            score++;
-            if (score % 5 === 0) speed += 0.5;
-        }
-
-        enemies.forEach((enemy, index) => {
-            enemy.y += speed;
-
-            // Collision Check
-            if (
-                enemy.x === player.x &&
-                enemy.y + CAR_HEIGHT > player.y &&
-                enemy.y < player.y + CAR_HEIGHT
-            ) {
-                gameOver();
-            }
-
-            // Remove off-screen enemies
-            if (enemy.y > 600) enemies.splice(index, 1);
-        });
-    }
-
-    function draw() {
-        // Background
-        ctx.fillStyle = '#050505';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Lane Lines
-        ctx.strokeStyle = '#222';
-        ctx.setLineDash([20, 20]);
-        ctx.beginPath();
-        ctx.moveTo(100, 0); ctx.lineTo(100, 600);
-        ctx.moveTo(225, 0); ctx.lineTo(225, 600);
-        ctx.stroke();
-
-        // UI Text
-        ctx.setLineDash([]);
-        ctx.font = 'bold 18px Courier New';
-        ctx.fillStyle = '#0088aa';
-        ctx.fillText(`SCORE: ${score}`, 20, 40);
-        ctx.fillText(`BEST: ${bestScore}`, 220, 40);
-
-        // Player
-        drawCar(player.x, player.y, '#990099', true);
-
-        // Enemies
-        enemies.forEach(enemy => {
-            drawCar(enemy.x, enemy.y, '#660066');
-        });
-    }
-
-    function gameOver() {
-        gameActive = false;
-        if (score > bestScore) {
-            bestScore = score;
-            localStorage.setItem('nitroBest', bestScore);
-        }
-        overlay.style.display = 'flex';
-        document.querySelector('h1').innerText = "CRASHED!";
-    }
-
-    function animate() {
-        if (!gameActive) return;
-        update();
-        draw();
-        requestAnimationFrame(animate);
-    }
-
-    // Controls
-    window.addEventListener('keydown', (e) => {
-        if (!gameActive) return;
-        if (e.key === 'ArrowLeft' && player.lane > 0) player.lane--;
-        if (e.key === 'ArrowRight' && player.lane < 2) player.lane++;
-        player.x = LANES[player.lane];
-    });
-
-    // Touch support
-    canvas.addEventListener('touchstart', (e) => {
-        if (!gameActive) return;
-        const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
-        if (touchX < canvas.width / 2 && player.lane > 0) player.lane--;
-        else if (touchX > canvas.width / 2 && player.lane < 2) player.lane++;
-        player.x = LANES[player.lane];
-    });
-
-    startBtn.addEventListener('click', init);
-
-    // Initial draw
-    draw();
-</script>
-
-</body>
-</html>
