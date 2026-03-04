@@ -2,166 +2,165 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Nitro Racer: Smooth Cycle</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nitro Racer 3D | Neon Drive</title>
     <style>
-        body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Arial', sans-serif; overflow: hidden; }
-        #container { position: relative; width: 360px; height: 600px; border-radius: 30px; border: 4px solid #111; overflow: hidden; box-shadow: 0 0 50px rgba(0,0,0,1); }
-        canvas { display: block; }
-        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 10; transition: opacity 0.5s; }
-        h1 { color: #00f2ff; text-shadow: 0 0 20px #00f2ff; font-size: 32px; letter-spacing: 2px; }
-        button { background: #ff00ff; color: white; border: none; padding: 18px 50px; border-radius: 50px; font-weight: bold; font-size: 20px; cursor: pointer; box-shadow: 0 0 25px #ff00ff; transition: transform 0.2s; }
-        button:hover { transform: scale(1.1); }
-        .score { position: absolute; top: 25px; left: 25px; color: #00f2ff; font-weight: bold; font-size: 20px; pointer-events: none; z-index: 5; text-shadow: 0 2px 4px #000; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #00f3ff; pointer-events: none; }
+        .stats { font-size: 24px; text-shadow: 0 0 10px #00f3ff; }
+        #menu { 
+            position: absolute; inset: 0; background: rgba(0,0,0,0.8); 
+            display: flex; flex-direction: column; justify-content: center; 
+            align-items: center; z-index: 100; color: white;
+        }
+        button { 
+            padding: 15px 40px; font-size: 1.2rem; background: #ff00ff; 
+            color: white; border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 0 20px #ff00ff; font-weight: bold;
+        }
+        .controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 50px; }
+        .btn { width: 80px; height: 80px; border: 2px solid #00f3ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #00f3ff; font-size: 30px; touch-action: none; }
     </style>
 </head>
 <body>
 
-<div id="container">
-    <div class="score" id="sBox">SCORE: 0</div>
-    <canvas id="gameCanvas" width="360" height="600"></canvas>
-    <div id="ui">
-        <h1 id="title">NITRO RACER</h1>
-        <button onclick="play()">START DRIVE</button>
-    </div>
+<div id="ui">
+    <div class="stats">SCORE: <span id="score">0</span></div>
 </div>
 
+<div id="menu">
+    <h1 style="color:#00f3ff; letter-spacing: 10px;">NITRO 3D</h1>
+    <button onclick="startGame()">START RACE</button>
+    <p style="margin-top:20px; color:#666;">Use Left/Right Arrows</p>
+</div>
+
+<div class="controls">
+    <div class="btn" id="lBtn">◀</div>
+    <div class="btn" id="rBtn">▶</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const ui = document.getElementById('ui');
-    const sBox = document.getElementById('sBox');
-
-    // --- GAME SETTINGS ---
-    const LANES = [75, 180, 285];
-    let player = { targetLane: 1, x: 180, lerp: 0.15 };
-    let enemies = [];
+    let scene, camera, renderer, playerCar, road;
+    let gameActive = false;
     let score = 0;
-    let speed = 7;
-    let active = false;
-    let time = 0; // 0 to Math.PI * 2
-    let loop;
+    let enemies = [];
+    let speed = 0.8;
+    let moveL = false, moveR = false;
 
-    function drawCar(x, y, color, isPlayer) {
-        const isNight = Math.sin(time) < -0.2;
-        ctx.save();
-        
-        // Glow/Underglow
-        ctx.shadowBlur = isNight ? 25 : 10;
-        ctx.shadowColor = color;
-        ctx.fillStyle = color;
-        
-        // Body
-        ctx.beginPath();
-        ctx.roundRect(x - 24, y, 48, 88, 12);
-        ctx.fill();
+    function init() {
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x000000, 10, 50);
 
-        // Windshield
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "rgba(0,0,0,0.8)";
-        ctx.fillRect(x - 18, y + 15, 36, 22);
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3, 8);
+        camera.lookAt(0, 0, -5);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
         // Lights
-        if (isNight) {
-            // Headlights
-            ctx.fillStyle = "rgba(255, 255, 220, 0.3)";
-            ctx.beginPath();
-            ctx.moveTo(x - 20, y); ctx.lineTo(x - 50, y - 80); ctx.lineTo(x + 50, y - 80); ctx.lineTo(x + 20, y);
-            ctx.fill();
-        }
+        const ambient = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambient);
+        const sun = new THREE.PointLight(0x00f3ff, 1, 100);
+        sun.position.set(0, 10, 0);
+        scene.add(sun);
 
-        // Tail lights
-        ctx.fillStyle = "#ff1111";
-        ctx.fillRect(x - 18, y + 80, 8, 4);
-        ctx.fillRect(x + 10, y + 80, 8, 4);
+        // Road
+        const roadGeo = new THREE.PlaneGeometry(10, 2000);
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        road = new THREE.Mesh(roadGeo, roadMat);
+        road.rotation.x = -Math.PI / 2;
+        scene.add(road);
+
+        // Grid lines for speed effect
+        const grid = new THREE.GridHelper(200, 40, 0x00f3ff, 0x222222);
+        grid.position.y = 0.05;
+        scene.add(grid);
+
+        // Player Car
+        const carGeo = new THREE.BoxGeometry(1.2, 0.6, 2);
+        const carMat = new THREE.MeshStandardMaterial({ color: 0x00f3ff, emissive: 0x00f3ff, emissiveIntensity: 0.5 });
+        playerCar = new THREE.Mesh(carGeo, carMat);
+        playerCar.position.y = 0.6;
+        scene.add(playerCar);
+
+        animate();
+    }
+
+    function spawnEnemy() {
+        const geo = new THREE.BoxGeometry(1.2, 0.6, 2);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff });
+        const enemy = new THREE.Mesh(geo, mat);
+        enemy.position.set((Math.random() - 0.5) * 8, 0.6, -100);
+        scene.add(enemy);
+        enemies.push(enemy);
+    }
+
+    function startGame() {
+        document.getElementById('menu').style.display = 'none';
+        gameActive = true;
+        score = 0;
+        speed = 0.8;
+        playerCar.position.x = 0;
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
         
-        ctx.restore();
-    }
+        if (gameActive) {
+            // Movement
+            if (moveL && playerCar.position.x > -4) playerCar.position.x -= 0.15;
+            if (moveR && playerCar.position.x < 4) playerCar.position.x += 0.15;
 
-    function engine() {
-        if (!active) return;
-        time += 0.002; // Day/Night Cycle speed
+            // Speed effect
+            road.position.z = (road.position.z + speed) % 10;
 
-        // 1. DYNAMIC ENVIRONMENT LERP
-        const nightVal = (Math.sin(time) + 1) / 2; // 0 to 1
-        // Background sky lerp (Blue to Black)
-        const skyR = Math.floor(5 * nightVal);
-        const skyG = Math.floor(15 * nightVal);
-        const skyB = Math.floor(40 * nightVal);
-        ctx.fillStyle = `rgb(${skyR}, ${skyG}, ${skyB})`;
-        ctx.fillRect(0, 0, 360, 600);
+            // Enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                enemies[i].position.z += speed;
 
-        // Road lerp
-        const roadGray = Math.floor(40 - (30 * nightVal));
-        ctx.fillStyle = `rgb(${roadGray}, ${roadGray}, ${roadGray + 5})`;
-        ctx.fillRect(25, 0, 310, 600);
+                // Collision Detection
+                const dist = playerCar.position.distanceTo(enemies[i].position);
+                if (dist < 1.5) {
+                    gameActive = false;
+                    document.getElementById('menu').style.display = 'flex';
+                    document.querySelector('h1').innerText = "WASTED";
+                }
 
-        // Moving Lines
-        ctx.strokeStyle = nightVal > 0.7 ? "#222" : "#444";
-        ctx.setLineDash([40, 60]);
-        ctx.lineDashOffset = -(Date.now() / 10) % 100;
-        [120, 240].forEach(lx => {
-            ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, 600); ctx.stroke();
-        });
-
-        // 2. SMOOTH PLAYER LERP
-        const destX = LANES[player.targetLane];
-        player.x += (destX - player.x) * player.lerp;
-
-        // 3. ENEMIES
-        if (Math.random() < 0.02) {
-            enemies.push({ x: LANES[Math.floor(Math.random() * 3)], y: -100 });
-        }
-
-        for (let i = enemies.length - 1; i >= 0; i--) {
-            let e = enemies[i];
-            e.y += speed;
-            drawCar(e.x, e.y, "#ff00ff", false);
-
-            // Smooth Collision Detection
-            if (Math.abs(e.x - player.x) < 40 && e.y + 80 > 480 && e.y < 560) {
-                gameOver();
+                if (enemies[i].position.z > 10) {
+                    scene.remove(enemies[i]);
+                    enemies.splice(i, 1);
+                    score++;
+                    document.getElementById('score').innerText = score;
+                    speed += 0.005;
+                }
             }
 
-            if (e.y > 650) {
-                enemies.splice(i, 1);
-                score++;
-                sBox.innerText = "SCORE: " + score;
-                speed += 0.05;
-            }
+            if (Math.random() < 0.03) spawnEnemy();
         }
 
-        drawCar(player.x, 480, "#00f2ff", true);
-        loop = requestAnimationFrame(engine);
+        renderer.render(scene, camera);
     }
 
-    function play() {
-        cancelAnimationFrame(loop);
-        active = true;
-        score = 0; speed = 7; enemies = []; time = 0;
-        sBox.innerText = "SCORE: 0";
-        ui.style.opacity = "0";
-        setTimeout(() => ui.style.display = 'none', 500);
-        engine();
-    }
+    // Controls
+    window.onkeydown = (e) => { if(e.key==="ArrowLeft") moveL=true; if(e.key==="ArrowRight") moveR=true; };
+    window.onkeyup = (e) => { if(e.key==="ArrowLeft") moveL=false; if(e.key==="ArrowRight") moveR=false; };
+    
+    document.getElementById('lBtn').ontouchstart = () => moveL = true;
+    document.getElementById('lBtn').ontouchend = () => moveL = false;
+    document.getElementById('rBtn').ontouchstart = () => moveR = true;
+    document.getElementById('rBtn').ontouchend = () => moveR = false;
 
-    function gameOver() {
-        active = false;
-        ui.style.display = 'flex';
-        ui.style.opacity = "1";
-        document.getElementById('title').innerText = "WASTED";
-    }
-
-    // --- CONTROLS ---
-    window.addEventListener('keydown', e => {
-        if (e.key === "ArrowLeft" && player.targetLane > 0) player.targetLane--;
-        if (e.key === "ArrowRight" && player.targetLane < 2) player.targetLane++;
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    canvas.addEventListener('touchstart', e => {
-        const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
-        if (touchX < 180 && player.targetLane > 0) player.targetLane--;
-        else if (touchX > 180 && player.targetLane < 2) player.targetLane++;
-    });
+    init();
 </script>
 </body>
 </html>
