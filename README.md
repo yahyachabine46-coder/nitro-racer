@@ -2,164 +2,175 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Nitro Racer - Fixed</title>
+    <title>Nitro Racer: Funny Car Dragster</title>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
-        #game-container { position: relative; width: 360px; height: 600px; border: 2px solid #333; border-radius: 20px; background: #050505; }
-        canvas { display: block; border-radius: 18px; cursor: crosshair; }
-        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; border-radius: 18px; }
-        .garage { background: #151515; padding: 20px; border-radius: 15px; width: 80%; margin-bottom: 20px; border: 1px solid #222; }
-        h1 { color: #00f2ff; text-shadow: 0 0 10px #00f2ff; margin: 0 0 20px 0; font-size: 24px; }
-        label { display: block; font-size: 10px; color: #888; margin-top: 10px; text-transform: uppercase; }
-        input, select { width: 100%; margin-top: 5px; background: #222; border: 1px solid #444; color: #fff; padding: 5px; }
-        #startBtn { background: #ff00ff; color: #fff; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 18px; cursor: pointer; box-shadow: 0 0 20px #ff00ff; margin-top: 10px; }
-        #startBtn:hover { transform: scale(1.05); }
+        body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; overflow: hidden; }
+        #container { position: relative; width: 360px; height: 600px; border-radius: 30px; border: 4px solid #1a1a1a; overflow: hidden; box-shadow: 0 0 50px rgba(0,0,0,1); }
+        canvas { display: block; }
+        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 10; transition: 0.5s; }
+        h1 { color: #00f2ff; text-shadow: 0 0 20px #00f2ff; font-size: 28px; }
+        button { background: #ff00ff; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 18px; cursor: pointer; box-shadow: 0 0 20px #ff00ff; }
+        .stats { position: absolute; top: 20px; left: 20px; color: #00f2ff; font-weight: bold; z-index: 5; line-height: 1.5; }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <canvas id="raceCanvas" width="360" height="600"></canvas>
-    
-    <div id="overlay">
-        <h1>NITRO GARAGE</h1>
-        <div class="garage">
-            <label>Paint Job</label>
-            <input type="color" id="carColor" value="#00aaff">
-            
-            <label>Body Style</label>
-            <select id="decalStyle">
-                <option value="none">Standard</option>
-                <option value="carbon">Carbon Fiber</option>
-                <option value="stripes">Racing Stripes</option>
-            </select>
-
-            <label>Underglow Intensity</label>
-            <input type="range" id="glowPower" min="0" max="40" value="20">
-        </div>
-        <button id="startBtn">START ENGINE</button>
-        <p style="font-size: 10px; color: #444; margin-top: 15px;">ARROWS OR CLICK SIDES TO STEER</p>
+<div id="container">
+    <div class="stats">
+        <div id="sBox">SCORE: 0</div>
+        <div id="vBox" style="font-size: 12px; color: #ff00ff;">VELOCITY: 0</div>
+    </div>
+    <canvas id="gameCanvas" width="360" height="600"></canvas>
+    <div id="ui">
+        <h1 id="title">FUNNY CAR DRAGSTER</h1>
+        <button onclick="play()">START RACE</button>
+        <p style="color: #444; font-size: 10px; margin-top: 10px;">SPACE TO DEPLOY CHUTES</p>
     </div>
 </div>
 
 <script>
-    const canvas = document.getElementById('raceCanvas');
+    const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const overlay = document.getElementById('overlay');
-    const startBtn = document.getElementById('startBtn');
-    
-    // Config
-    const LANES = [70, 180, 290];
-    let player = { lane: 1, x: 180, color: '#00aaff' };
+    const ui = document.getElementById('ui');
+    const sBox = document.getElementById('sBox');
+    const vBox = document.getElementById('vBox');
+
+    // --- FunnyCar Logic (Translated from Java) ---
+    const LANES = [75, 180, 285];
+    let player = { 
+        targetLane: 1, 
+        x: 180, 
+        velocity: 0, 
+        acceleration: 0.05, // High dragster acceleration
+        parachutesDeployed: false 
+    };
+
     let enemies = [];
     let score = 0;
-    let gameActive = false;
-    let speed = 5;
-    let frame = 0;
+    let active = false;
+    let time = 0;
+    let loop;
 
     function drawCar(x, y, color, isPlayer) {
+        const isNight = Math.sin(time) < -0.2;
         ctx.save();
-        if (isPlayer) {
-            ctx.shadowBlur = document.getElementById('glowPower').value;
-            ctx.shadowColor = color;
-        }
         
-        // Body
+        // Underglow
+        ctx.shadowBlur = isNight ? 20 : 5;
+        ctx.shadowColor = color;
         ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.roundRect(x - 25, y, 50, 90, 10);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        // Windows
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(x - 18, y + 15, 36, 25);
         
-        // Decals
-        if (isPlayer && document.getElementById('decalStyle').value === 'stripes') {
-            ctx.fillStyle = "rgba(255,255,255,0.3)";
-            ctx.fillRect(x - 12, y, 6, 90); ctx.fillRect(x + 6, y, 6, 90);
+        // Dragster Body (Longer than standard cars)
+        ctx.beginPath();
+        ctx.roundRect(x - 22, y - 10, 44, 100, 8);
+        ctx.fill();
+
+        // Parachutes (Visual Logic)
+        if (isPlayer && player.parachutesDeployed) {
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(x - 20, y + 105, 15, 0, Math.PI * 2);
+            ctx.arc(x + 20, y + 105, 15, 0, Math.PI * 2);
+            ctx.fill();
+            // Strings
+            ctx.strokeStyle = "#fff";
+            ctx.beginPath();
+            ctx.moveTo(x, y + 90); ctx.lineTo(x - 20, y + 105);
+            ctx.moveTo(x, y + 90); ctx.lineTo(x + 20, y + 105);
+            ctx.stroke();
         }
 
+        // Windshield
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillRect(x - 16, y + 10, 32, 20);
+        
         ctx.restore();
     }
 
-    function update() {
-        if (!gameActive) return;
-        frame++;
+    function engine() {
+        if (!active) return;
+        time += 0.005;
 
-        // Spawn enemies
-        if (frame % 60 === 0) {
+        // 1. Day/Night Environment
+        const nightVal = (Math.sin(time) + 1) / 2;
+        ctx.fillStyle = `rgb(${5 * nightVal}, ${15 * nightVal}, ${40 * nightVal})`;
+        ctx.fillRect(0, 0, 360, 600);
+        ctx.fillStyle = "#111"; // Track
+        ctx.fillRect(30, 0, 300, 600);
+
+        // 2. FUNNY CAR PHYSICS (Your Java Logic)
+        if (!player.parachutesDeployed) {
+            player.velocity += player.acceleration;
+            if (player.velocity > 15) player.velocity = 15; // Cap speed
+        } else {
+            player.velocity *= 0.96; // Drag simulation
+        }
+
+        // Smooth lane movement
+        const destX = LANES[player.targetLane];
+        player.x += (destX - player.x) * 0.15;
+
+        // Display Velocity
+        vBox.innerText = `VELOCITY: ${Math.round(player.velocity * 20)} MPH`;
+
+        // 3. ENEMIES (Move relative to player speed)
+        if (Math.random() < 0.03) {
             enemies.push({ x: LANES[Math.floor(Math.random() * 3)], y: -100 });
         }
 
-        enemies.forEach((en, i) => {
-            en.y += speed;
-            // Collision Check
-            if (en.x === LANES[player.lane] && en.y + 80 > 480 && en.y < 570) {
-                gameActive = false;
-                overlay.style.display = 'flex';
-                document.querySelector('h1').innerText = "WASTED!";
-                startBtn.innerText = "RETRY";
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let e = enemies[i];
+            // If player is fast, enemies come at them faster
+            e.y += (player.velocity + 3); 
+            drawCar(e.x, e.y, "#ff00ff", false);
+
+            if (Math.abs(e.x - player.x) < 40 && e.y + 80 > 480 && e.y < 560) {
+                gameOver();
             }
-            if (en.y > 650) {
+
+            if (e.y > 700) {
                 enemies.splice(i, 1);
                 score++;
-                if (score % 5 === 0) speed += 0.5;
+                sBox.innerText = "SCORE: " + score;
             }
-        });
+        }
 
-        draw();
-        requestAnimationFrame(update);
+        drawCar(player.x, 480, "#00f2ff", true);
+        loop = requestAnimationFrame(engine);
     }
 
-    function draw() {
-        ctx.fillStyle = '#050505';
-        ctx.fillRect(0, 0, 360, 600);
-
-        // Lines
-        ctx.strokeStyle = '#222';
-        ctx.setLineDash([20, 20]);
-        [125, 235].forEach(lx => {
-            ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, 600); ctx.stroke();
-        });
-
-        // Player & Enemies
-        drawCar(LANES[player.lane], 480, document.getElementById('carColor').value, true);
-        enemies.forEach(en => drawCar(en.x, en.y, '#555', false));
-
-        // Score
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#00f2ff';
-        ctx.font = 'bold 16px Arial';
-        ctx.fillText("SCORE: " + score, 20, 40);
-    }
-
-    // Input
-    window.addEventListener('keydown', e => {
-        if (e.key === "ArrowLeft" && player.lane > 0) player.lane--;
-        if (e.key === "ArrowRight" && player.lane < 2) player.lane++;
-    });
-
-    canvas.addEventListener('click', e => {
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        if (x < 180 && player.lane > 0) player.lane--;
-        else if (x > 180 && player.lane < 2) player.lane++;
-    });
-
-    startBtn.addEventListener('click', () => {
-        gameActive = true;
-        score = 0;
-        speed = 5;
+    function play() {
+        cancelAnimationFrame(loop);
+        active = true;
+        score = 0; 
+        player.velocity = 0;
+        player.parachutesDeployed = false;
         enemies = [];
-        player.lane = 1;
-        overlay.style.display = 'none';
-        update();
+        ui.style.opacity = "0";
+        setTimeout(() => ui.style.display = 'none', 500);
+        engine();
+    }
+
+    function gameOver() {
+        active = false;
+        ui.style.display = 'flex';
+        ui.style.opacity = "1";
+        document.getElementById('title').innerText = "CRASHED";
+    }
+
+    // --- INPUTS ---
+    window.addEventListener('keydown', e => {
+        if (e.key === "ArrowLeft" && player.targetLane > 0) player.targetLane--;
+        if (e.key === "ArrowRight" && player.targetLane < 2) player.targetLane++;
+        if (e.key === " ") player.parachutesDeployed = true; // SPACE to deploy
     });
 
-    // Run initial frame
-    draw();
+    canvas.addEventListener('touchstart', e => {
+        const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+        if (touchX < 180 && player.targetLane > 0) player.targetLane--;
+        else if (touchX > 180 && player.targetLane < 2) player.targetLane++;
+    });
 </script>
 </body>
 </html>
