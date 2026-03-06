@@ -1,117 +1,179 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>3D Car Game</title>
-<style>
-body { margin: 0; overflow: hidden; background: black; }
-#score {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  color: white;
-  font-family: Arial;
-  font-size: 20px;
-}
-</style>
+    <title>Nitro Racer Wide</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: sans-serif; }
+        /* This ensures the game stays wide and centered */
+        #game-container {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 95vw;
+            aspect-ratio: 16 / 9;
+            background: #111;
+            border: 4px solid #333;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+        .ui {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.7);
+            z-index: 10;
+        }
+        button {
+            background: #00f2ff;
+            color: #000;
+            border: none;
+            padding: 20px 50px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #00f2ff;
+        }
+        .stats {
+            position: absolute;
+            top: 15px; left: 20px;
+            font-size: 20px;
+            color: #00f2ff;
+            font-weight: bold;
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
 
-<div id="score">Score: 0</div>
+<div id="game-container">
+    <div class="stats" id="stats">STAGE 1 | 0.0s</div>
+    
+    <div id="menu" class="ui">
+        <h1 id="title" style="font-size: 60px; margin-bottom: 20px;">NITRO RACER</h1>
+        <button onclick="startGame()">START RACE</button>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+    <canvas id="c"></canvas>
+</div>
 
 <script>
-let scene = new THREE.Scene();
-let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-let renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const menu = document.getElementById('menu');
+    const statBox = document.getElementById('stats');
+    const title = document.getElementById('title');
 
-// Lighting
-let light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(0, 10, 10);
-scene.add(light);
+    // High internal resolution for crisp graphics
+    canvas.width = 1600;
+    canvas.height = 900;
 
-// Road
-let roadGeometry = new THREE.PlaneGeometry(10, 200);
-let roadMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-let road = new THREE.Mesh(roadGeometry, roadMaterial);
-road.rotation.x = -Math.PI / 2;
-scene.add(road);
+    let playing = false;
+    let lane = 2;
+    let currentX = 800;
+    let speed = 8;
+    let enemies = [];
+    let startTime = 0;
+    const LANES = [200, 500, 800, 1100, 1400];
 
-// Player Car
-let carGeometry = new THREE.BoxGeometry(1, 0.5, 2);
-let carMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-let car = new THREE.Mesh(carGeometry, carMaterial);
-car.position.y = 0.25;
-car.position.z = 5;
-scene.add(car);
-
-// Obstacles
-let obstacles = [];
-function createObstacle() {
-  let geo = new THREE.BoxGeometry(1, 0.5, 2);
-  let mat = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-  let obstacle = new THREE.Mesh(geo, mat);
-  obstacle.position.y = 0.25;
-  obstacle.position.z = -100;
-  obstacle.position.x = (Math.random() - 0.5) * 8;
-  scene.add(obstacle);
-  obstacles.push(obstacle);
-}
-
-setInterval(createObstacle, 1000);
-
-camera.position.set(0, 5, 10);
-camera.lookAt(car.position);
-
-let speed = 0.5;
-let score = 0;
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowLeft" && car.position.x > -4) {
-    car.position.x -= 1;
-  }
-  if (event.key === "ArrowRight" && car.position.x < 4) {
-    car.position.x += 1;
-  }
-});
-
-function animate() {
-  requestAnimationFrame(animate);
-
-  obstacles.forEach((obs, index) => {
-    obs.position.z += speed;
-
-    // Collision detection
-    if (
-      Math.abs(obs.position.z - car.position.z) < 1 &&
-      Math.abs(obs.position.x - car.position.x) < 1
-    ) {
-      alert("Game Over! Final Score: " + score);
-      location.reload();
+    function drawCar(x, y, color) {
+        ctx.fillStyle = color;
+        // Simple Glow
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = color;
+        // Car body
+        ctx.fillRect(x - 50, y - 80, 100, 160);
+        // Windshield
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(x - 40, y - 20, 80, 40);
+        ctx.shadowBlur = 0;
     }
 
-    if (obs.position.z > 10) {
-      scene.remove(obs);
-      obstacles.splice(index, 1);
-      score++;
-      document.getElementById("score").innerText = "Score: " + score;
+    function startGame() {
+        playing = true;
+        speed = 10;
+        lane = 2;
+        currentX = 800;
+        enemies = [];
+        startTime = Date.now();
+        menu.style.display = 'none';
+        update();
     }
-  });
 
-  renderer.render(scene, camera);
-}
+    function update() {
+        if (!playing) return;
 
-animate();
+        // 1. Fill Background
+        ctx.fillStyle = "#050505";
+        ctx.fillRect(0, 0, 1600, 900);
 
-window.addEventListener("resize", () => {
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-});
+        // 2. Draw Road
+        ctx.fillStyle = "#151515";
+        ctx.fillRect(100, 0, 1400, 900);
+
+        // 3. Lane Lines
+        ctx.strokeStyle = "#333";
+        ctx.setLineDash([40, 40]);
+        ctx.lineWidth = 5;
+        for(let i = 1; i < 5; i++) {
+            ctx.beginPath();
+            ctx.moveTo(100 + (i * 280), 0);
+            ctx.lineTo(100 + (i * 280), 900);
+            ctx.stroke();
+        }
+
+        // 4. Update Stats
+        let elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        statBox.innerText = `TIME: ${elapsed}s | SPEED: ${Math.round(speed * 15)} MPH`;
+
+        // 5. Player Physics
+        let targetX = LANES[lane];
+        currentX += (targetX - currentX) * 0.15;
+        speed += 0.003; // Slowly get faster
+
+        // 6. Spawn Enemies
+        if (Math.random() < 0.03) {
+            enemies.push({ x: LANES[Math.floor(Math.random() * 5)], y: -200 });
+        }
+
+        // 7. Update Enemies
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let e = enemies[i];
+            e.y += speed;
+            drawCar(e.x, e.y, "#ff3300");
+
+            // Simple Collision Detection
+            if (Math.abs(e.x - currentX) < 90 && Math.abs(e.y - 750) < 150) {
+                playing = false;
+                title.innerText = "CRASHED!";
+                menu.style.display = 'flex';
+                return;
+            }
+
+            if (e.y > 1000) enemies.splice(i, 1);
+        }
+
+        // 8. Draw Player
+        drawCar(currentX, 750, "#00f2ff");
+
+        requestAnimationFrame(update);
+    }
+
+    // Controls
+    window.addEventListener('keydown', e => {
+        if ((e.key === "ArrowLeft" || e.key === "a") && lane > 0) lane--;
+        if ((e.key === "ArrowRight" || e.key === "d") && lane < 4) lane++;
+    });
+
+    // Touch/Mouse Controls
+    canvas.addEventListener('mousedown', e => {
+        const rect = canvas.getBoundingClientRect();
+        const clickX = (e.clientX - rect.left) / rect.width;
+        if (clickX < 0.5 && lane > 0) lane--;
+        else if (clickX > 0.5 && lane < 4) lane++;
+    });
 </script>
-
 </body>
 </html>
