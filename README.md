@@ -1,81 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nitro Racer Wide</title>
     <style>
-        body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; color: #fff; }
-        #ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 10; }
-        canvas { display: block; width: 100vw; height: auto; aspect-ratio: 16/9; background: #111; }
-        button { background: #00f2ff; color: #000; border: none; padding: 15px 40px; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 5px; box-shadow: 0 0 20px #00f2ff; }
-        .stats { position: absolute; top: 20px; left: 20px; z-index: 5; font-size: 24px; color: #00f2ff; pointer-events: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: sans-serif; }
+        /* This ensures the game stays wide and centered */
+        #game-container {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 95vw;
+            aspect-ratio: 16 / 9;
+            background: #111;
+            border: 4px solid #333;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+        .ui {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.7);
+            z-index: 10;
+        }
+        button {
+            background: #00f2ff;
+            color: #000;
+            border: none;
+            padding: 20px 50px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #00f2ff;
+        }
+        .stats {
+            position: absolute;
+            top: 15px; left: 20px;
+            font-size: 20px;
+            color: #00f2ff;
+            font-weight: bold;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
 
-<div class="stats" id="stats">STAGE 1 | 0.0s</div>
-<div id="ui">
-    <h1 style="font-size: 48px; text-shadow: 0 0 20px #00f2ff;">NITRO RACER WIDE</h1>
-    <button onclick="startGame()">START RACE</button>
-    <p style="margin-top: 20px; color: #888;">USE ARROWS OR CLICK SIDES TO STEER</p>
+<div id="game-container">
+    <div class="stats" id="stats">STAGE 1 | 0.0s</div>
+    
+    <div id="menu" class="ui">
+        <h1 id="title" style="font-size: 60px; margin-bottom: 20px;">NITRO RACER</h1>
+        <button onclick="startGame()">START RACE</button>
+    </div>
+
+    <canvas id="c"></canvas>
 </div>
-<canvas id="g"></canvas>
 
 <script>
-    const canvas = document.getElementById('g');
+    const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
-    const ui = document.getElementById('ui');
+    const menu = document.getElementById('menu');
     const statBox = document.getElementById('stats');
+    const title = document.getElementById('title');
 
-    // Set internal resolution
+    // High internal resolution for crisp graphics
     canvas.width = 1600;
     canvas.height = 900;
 
-    let active = false;
-    let score = 0;
+    let playing = false;
     let lane = 2;
-    let playerX = 800;
-    let velocity = 5;
-    let startTime = 0;
+    let currentX = 800;
+    let speed = 8;
     let enemies = [];
+    let startTime = 0;
     const LANES = [200, 500, 800, 1100, 1400];
 
     function drawCar(x, y, color) {
         ctx.fillStyle = color;
-        // Shadow/Glow
+        // Simple Glow
         ctx.shadowBlur = 15;
         ctx.shadowColor = color;
-        // Body
+        // Car body
         ctx.fillRect(x - 50, y - 80, 100, 160);
-        // Cockpit
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        ctx.fillRect(x - 35, y - 20, 70, 50);
+        // Windshield
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(x - 40, y - 20, 80, 40);
         ctx.shadowBlur = 0;
     }
 
     function startGame() {
-        active = true;
-        score = 0;
-        velocity = 8;
+        playing = true;
+        speed = 10;
+        lane = 2;
+        currentX = 800;
         enemies = [];
         startTime = Date.now();
-        ui.style.display = 'none';
-        loop();
+        menu.style.display = 'none';
+        update();
     }
 
-    function loop() {
-        if (!active) return;
+    function update() {
+        if (!playing) return;
 
-        // 1. Clear & Background
+        // 1. Fill Background
         ctx.fillStyle = "#050505";
         ctx.fillRect(0, 0, 1600, 900);
 
-        // 2. Road & Lines
-        ctx.fillStyle = "#111";
+        // 2. Draw Road
+        ctx.fillStyle = "#151515";
         ctx.fillRect(100, 0, 1400, 900);
+
+        // 3. Lane Lines
         ctx.strokeStyle = "#333";
-        ctx.setLineDash([30, 30]);
+        ctx.setLineDash([40, 40]);
+        ctx.lineWidth = 5;
         for(let i = 1; i < 5; i++) {
             ctx.beginPath();
             ctx.moveTo(100 + (i * 280), 0);
@@ -83,57 +124,55 @@
             ctx.stroke();
         }
 
-        // 3. Update Stats
-        let time = ((Date.now() - startTime) / 1000).toFixed(1);
-        statBox.innerText = `SCORE: ${score} | ${time}s`;
+        // 4. Update Stats
+        let elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        statBox.innerText = `TIME: ${elapsed}s | SPEED: ${Math.round(speed * 15)} MPH`;
 
-        // 4. Player Physics
+        // 5. Player Physics
         let targetX = LANES[lane];
-        playerX += (targetX - playerX) * 0.15;
-        velocity += 0.005;
-        if (velocity > 25) velocity = 25;
+        currentX += (targetX - currentX) * 0.15;
+        speed += 0.003; // Slowly get faster
 
-        // 5. Enemies
+        // 6. Spawn Enemies
         if (Math.random() < 0.03) {
             enemies.push({ x: LANES[Math.floor(Math.random() * 5)], y: -200 });
         }
 
+        // 7. Update Enemies
         for (let i = enemies.length - 1; i >= 0; i--) {
             let e = enemies[i];
-            e.y += velocity;
+            e.y += speed;
             drawCar(e.x, e.y, "#ff3300");
 
-            // Collision
-            if (Math.abs(e.x - playerX) < 90 && Math.abs(e.y - 750) < 140) {
-                active = false;
-                ui.style.display = 'flex';
-                alert("CRASHED! Score: " + score);
+            // Simple Collision Detection
+            if (Math.abs(e.x - currentX) < 90 && Math.abs(e.y - 750) < 150) {
+                playing = false;
+                title.innerText = "CRASHED!";
+                menu.style.display = 'flex';
+                return;
             }
 
-            if (e.y > 1000) {
-                enemies.splice(i, 1);
-                score++;
-            }
+            if (e.y > 1000) enemies.splice(i, 1);
         }
 
-        // 6. Draw Player
-        drawCar(playerX, 750, "#00f2ff");
+        // 8. Draw Player
+        drawCar(currentX, 750, "#00f2ff");
 
-        requestAnimationFrame(loop);
+        requestAnimationFrame(update);
     }
 
-    // Input
+    // Controls
     window.addEventListener('keydown', e => {
-        if (e.key === "ArrowLeft" && lane > 0) lane--;
-        if (e.key === "ArrowRight" && lane < 4) lane--; // Typo fix: lane++
-        if (e.key === "ArrowRight" && lane < 4) lane++; 
+        if ((e.key === "ArrowLeft" || e.key === "a") && lane > 0) lane--;
+        if ((e.key === "ArrowRight" || e.key === "d") && lane < 4) lane++;
     });
 
+    // Touch/Mouse Controls
     canvas.addEventListener('mousedown', e => {
         const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / rect.width;
-        if (x < 0.5 && lane > 0) lane--;
-        else if (x > 0.5 && lane < 4) lane++;
+        const clickX = (e.clientX - rect.left) / rect.width;
+        if (clickX < 0.5 && lane > 0) lane--;
+        else if (clickX > 0.5 && lane < 4) lane++;
     });
 </script>
 </body>
