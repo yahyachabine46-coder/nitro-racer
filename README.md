@@ -1,186 +1,169 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Nitro Racer: Ultimate</title>
+    <meta charset="UTF-8">
+    <title>Nitro Racer: Midnight Run</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; }
-        #game-wrap { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; aspect-ratio: 16 / 9; background: #080808; border: 2px solid #333; overflow: hidden; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: sans-serif; }
+        #wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 53.4vw; max-height: 100vh; max-width: 177vh; background: #050505; border: 3px solid #333; }
         canvas { width: 100%; height: 100%; display: block; }
-        .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 20; text-align: center; }
-        .ui-box { background: #111; padding: 20px; border-radius: 15px; border: 1px solid #444; width: 400px; margin: 10px; }
-        button { background: #ff00ff; color: white; border: none; padding: 12px 25px; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 5px; margin: 5px; width: 80%; box-shadow: 0 4px 0 #b300b3; }
-        button:active { transform: translateY(2px); box-shadow: 0 2px 0 #b300b3; }
-        .stats { position: absolute; top: 15px; left: 20px; z-index: 10; font-weight: bold; color: #00f2ff; pointer-events: none; line-height: 1.5; }
-        #nitro-bar { position: absolute; bottom: 20px; left: 20px; width: 150px; height: 15px; background: #222; border: 1px solid #444; }
-        #nitro-fill { height: 100%; background: #00f2ff; width: 100%; transition: 0.1s; }
+        .ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; }
+        button { background: #00f2ff; color: #000; border: none; padding: 25px 80px; font-size: 28px; font-weight: bold; cursor: pointer; border-radius: 15px; box-shadow: 0 0 20px #00f2ff; }
+        .stats { position: absolute; top: 20px; left: 20px; font-size: 22px; color: #00f2ff; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 2px 2px #000; }
     </style>
 </head>
 <body>
 
-<div id="game-wrap">
-    <div class="stats" id="statBox">STAGE 1 | 0.0s | $0</div>
-    <div id="nitro-bar"><div id="nitro-fill"></div></div>
-
-    <div id="menuScreen" class="screen">
-        <h1 id="titleText" style="color:#00f2ff; font-size: 4vw; margin: 10px;">NITRO RACER</h1>
-        <button onclick="startGame()">START RACE</button>
-        <button onclick="showTab('garage')">GARAGE</button>
-        <button onclick="showTab('settings')">SETTINGS</button>
+<div id="wrapper">
+    <div class="stats" id="ui-stats">SYSTEM READY</div>
+    <div id="ui-menu" class="ui">
+        <h1 id="ui-title" style="font-size: 60px; color: #00f2ff; text-shadow: 0 0 20px #00f2ff;">NITRO RACER</h1>
+        <button id="start-btn">START RACE</button>
+        <p style="margin-top:20px; color:#666;">ARROWS to steer | Night cycle active</p>
     </div>
-
-    <div id="garageScreen" class="screen" style="display:none;">
-        <h1>GARAGE</h1>
-        <div class="ui-box">
-            <button onclick="setCar('dragster')">🏎️ DRAGSTER (SPEED)</button>
-            <button onclick="setCar('truck')">🚛 TRUCK (ARMOR)</button>
-        </div>
-        <button onclick="showTab('menu')">BACK</button>
-    </div>
-
-    <div id="settingsScreen" class="screen" style="display:none;">
-        <h1>SETTINGS</h1>
-        <div class="ui-box">
-            <button id="unitBtn" onclick="toggleUnits()">UNITS: MPH</button>
-            <button id="soundBtn" onclick="toggleSound()">SOUND: ON</button>
-        </div>
-        <button onclick="showTab('menu')">BACK</button>
-    </div>
-
-    <canvas id="c"></canvas>
+    <canvas id="stage"></canvas>
 </div>
 
 <script>
-    const canvas = document.getElementById('c');
+    const canvas = document.getElementById('stage');
     const ctx = canvas.getContext('2d');
-    
-    let credits = parseInt(localStorage.getItem('nr_creds')) || 0;
-    let bestRun = JSON.parse(localStorage.getItem('nr_ghost')) || [];
-    let unitMode = 'MPH', soundOn = true, carColor = '#00f2ff', carType = 'dragster';
-    
-    let playing = false, lane = 2, playerX = 800, speed = 0, startTime = 0;
-    let enemies = [], kits = [], nitro = 100, isNitro = false, frame = 0, currentPath = [];
-    let lives = 1, policeActive = false, policeY = 1200, level = 1;
+    const menu = document.getElementById('ui-menu');
+    const startBtn = document.getElementById('start-btn');
+    const statText = document.getElementById('ui-stats');
 
-    const LANES = [250, 525, 800, 1075, 1350];
     canvas.width = 1600; canvas.height = 900;
 
-    let audioCtx, osc, gain;
-    function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            osc = audioCtx.createOscillator(); gain = audioCtx.createGain();
-            osc.type = 'sawtooth'; osc.connect(gain); gain.connect(audioCtx.destination);
-            gain.gain.value = 0; osc.start();
-        }
-    }
+    let active = false, lane = 2, playerX = 800, playerY = 750;
+    let speed = 0, frames = 0, lives = 1, score = 0;
+    let enemies = [], ramps = [], slicks = [];
+    let roadCurve = 0, targetCurve = 0, jumpTimer = 0, slipTimer = 0;
+    
+    // Day/Night Cycle
+    let nightMode = false;
+    let cycleTimer = 0;
 
-    function showTab(t) {
-        document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
-        if(t !== 'none') document.getElementById(t + 'Screen').style.display = 'flex';
-    }
+    const LANES = [300, 550, 800, 1050, 1300];
 
-    function setCar(t) { carType = t; lives = t === 'truck' ? 2 : 1; }
-    function toggleUnits() { unitMode = (unitMode === 'MPH' ? 'KPH' : 'MPH'); document.getElementById('unitBtn').innerText = "UNITS: " + unitMode; }
-    function toggleSound() { soundOn = !soundOn; document.getElementById('soundBtn').innerText = "SOUND: " + (soundOn ? "ON" : "OFF"); }
-
-    function drawCar(x, y, color, type = 'dragster', isPolice = false) {
-        ctx.save();
+    function drawRect(x, y, w, h, color, curveShift = 0) {
         ctx.fillStyle = color;
-        if (type === 'truck') ctx.fillRect(x - 70, y - 50, 140, 250);
-        else ctx.fillRect(x - 50, y - 70, 100, 200);
-        if (isPolice) {
-            ctx.fillStyle = (frame % 10 < 5) ? "red" : "blue";
-            ctx.fillRect(x - 40, y - 80, 80, 20);
-        }
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.fillRect(x - 30, y - 10, 60, 30);
-        ctx.restore();
+        ctx.fillRect(x - w/2 + curveShift, y - h/2, w, h);
     }
 
-    function drawKit(x, y) {
-        ctx.fillStyle = "#00ff00";
-        ctx.shadowBlur = 15; ctx.shadowColor = "#00ff00";
-        ctx.beginPath(); ctx.arc(x, y, 30, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.fillRect(x-5, y-20, 10, 40); ctx.fillRect(x-20, y-5, 40, 10);
-        ctx.shadowBlur = 0;
-    }
-
-    function startGame() {
-        initAudio(); playing = true; speed = 10; lane = 2; frame = 0; level = 1;
-        currentPath = []; enemies = []; kits = []; startTime = Date.now();
-        policeActive = false; policeY = 1200; setCar(carType);
-        showTab('none'); loop();
-    }
-
-    function loop() {
-        if (!playing) return;
-        frame++;
-        ctx.fillStyle = "#050505"; ctx.fillRect(0,0,1600,900);
-        ctx.fillStyle = "#111"; ctx.fillRect(150, 0, 1300, 900);
-
-        if(isNitro && nitro > 0) { speed += 0.25; nitro -= 1.5; } 
-        else { speed += 0.005; if(nitro < 100) nitro += 0.2; isNitro = false; }
-        document.getElementById('nitro-fill').style.width = nitro + "%";
-        playerX += (LANES[lane] - playerX) * 0.15;
-        currentPath.push({x: playerX});
-
-        if (speed > 25) policeActive = true;
-        if (policeActive) {
-            policeY -= (policeY - 850) * 0.02;
-            drawCar(playerX, policeY, "#111", 'dragster', true);
-            if (policeY < 870) { lives--; policeActive = false; policeY = 1200; if(lives <= 0) endGame("BUSTED!"); }
-        }
-
-        if(bestRun[frame]) drawCar(bestRun[frame].x, 750, "#ffffff44", 'dragster');
-
-        if(soundOn) {
-            osc.frequency.setTargetAtTime(60 + (speed * 12), audioCtx.currentTime, 0.1);
-            gain.gain.setTargetAtTime(0.05, audioCtx.currentTime, 0.1);
-        }
-
-        // Spawning Logic
-        if(Math.random() < 0.03 + (level * 0.005)) enemies.push({x: LANES[Math.floor(Math.random()*5)], y: -200});
-        if(Math.random() < 0.002) kits.push({x: LANES[Math.floor(Math.random()*5)], y: -200});
-
-        // Update Kits
-        for(let i=kits.length-1; i>=0; i--) {
-            kits[i].y += speed; drawKit(kits[i].x, kits[i].y);
-            if(Math.abs(kits[i].x - playerX) < 80 && Math.abs(kits[i].y - 750) < 100) { kits.splice(i, 1); lives++; }
-            else if(kits[i].y > 1000) kits.splice(i,1);
-        }
-
-        // Update Enemies
-        for(let i=enemies.length-1; i>=0; i--) {
-            enemies[i].y += speed; drawCar(enemies[i].x, enemies[i].y, "#f30");
-            if(Math.abs(enemies[i].x - playerX) < 100 && Math.abs(enemies[i].y - 750) < 150) {
-                lives--; enemies.splice(i, 1); if(lives <= 0) endGame("WRECKED!");
-            } else if(enemies[i].y > 1000) { enemies.splice(i,1); credits += 10; }
-        }
-
-        drawCar(playerX, 750, carColor, carType);
-        
-        let elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        level = 1 + Math.floor(elapsed / 30);
-        let displaySpeed = unitMode === 'MPH' ? Math.round(speed * 10) : Math.round(speed * 16);
-        document.getElementById('statBox').innerHTML = `LEVEL ${level} | ${displaySpeed} ${unitMode} | $${credits}<br>LIVES: ${lives}`;
-
-        requestAnimationFrame(loop);
-    }
-
-    function endGame(msg) {
-        playing = false; gain.gain.value = 0;
-        document.getElementById('titleText').innerText = msg;
-        if(currentPath.length > bestRun.length) { localStorage.setItem('nr_ghost', JSON.stringify(currentPath)); bestRun = currentPath; }
-        localStorage.setItem('nr_creds', credits);
-        showTab('menu');
-    }
-
-    window.addEventListener('keydown', e => {
-        if((e.key === "ArrowLeft" || e.key === "a") && lane > 0) lane--;
-        if((e.key === "ArrowRight" || e.key === "d") && lane < 4) lane++;
-        if(e.key === "Shift") isNitro = true;
+    startBtn.addEventListener('click', () => {
+        active = true; speed = 14; lane = 2; playerX = 800;
+        enemies = []; ramps = []; slicks = []; lives = 1; score = 0; frames = 0;
+        cycleTimer = 0; nightMode = false;
+        menu.style.display = 'none';
+        update();
     });
-    window.addEventListener('keyup', e => { if(e.key === "Shift") isNitro = false; });
+
+    function update() {
+        if (!active) return;
+        frames++;
+        cycleTimer++;
+
+        // Shift Day/Night every 1500 frames (~45s)
+        if (cycleTimer > 1500) {
+            nightMode = !nightMode;
+            cycleTimer = 0;
+        }
+
+        // Road Curve Logic
+        if (frames % 120 === 0) targetCurve = (Math.random() - 0.5) * 80;
+        roadCurve += (targetCurve - roadCurve) * 0.03;
+
+        // Base Background
+        ctx.fillStyle = nightMode ? "#020205" : "#050505";
+        ctx.fillRect(0, 0, 1600, 900);
+        
+        // Road Perspective
+        ctx.fillStyle = nightMode ? "#0a0a0f" : "#151515";
+        ctx.beginPath();
+        ctx.moveTo(550 + roadCurve, 0); ctx.lineTo(1050 + roadCurve, 0);
+        ctx.lineTo(1550, 900); ctx.lineTo(50, 900);
+        ctx.fill();
+
+        // Movement
+        let targetX = LANES[lane];
+        playerX += (targetX - playerX) * (slipTimer > 0 ? 0.03 : 0.15);
+        playerX -= roadCurve * 0.07;
+        speed += 0.004;
+
+        if (jumpTimer > 0) jumpTimer--;
+        if (slipTimer > 0) slipTimer--;
+
+        // Spawning
+        if (Math.random() < 0.04) enemies.push({x: LANES[Math.floor(Math.random()*5)], y: -200});
+        if (Math.random() < 0.005) ramps.push({x: LANES[Math.floor(Math.random()*5)], y: -200});
+        if (Math.random() < 0.007) slicks.push({x: LANES[Math.floor(Math.random()*5)], y: -200});
+
+        // Drawing Objects (Enemies, Ramps, Slicks)
+        [...slicks, ...ramps, ...enemies].forEach(obj => {
+            obj.y += speed;
+            let off = (1 - (obj.y / 900)) * roadCurve;
+            let color = obj === enemies[0] ? "#f30" : "#ff0"; // Placeholder colors
+        });
+
+        // Process Objects with collision
+        for (let i = enemies.length-1; i>=0; i--) {
+            let e = enemies[i]; e.y += speed;
+            let off = (1 - (e.y / 900)) * roadCurve;
+            drawRect(e.x + off, e.y, 100, 180, "#ff3300");
+            if (jumpTimer === 0 && Math.abs(e.x + off - playerX) < 85 && Math.abs(e.y - playerY) < 130) {
+                lives--; enemies.splice(i, 1);
+                if (lives <= 0) { active = false; menu.style.display = 'flex'; }
+            }
+            if (e.y > 1000) { enemies.splice(i,1); score += 100; }
+        }
+
+        for (let i = ramps.length-1; i>=0; i--) {
+            let r = ramps[i]; r.y += speed;
+            let off = (1 - (r.y / 900)) * roadCurve;
+            drawRect(r.x + off, r.y, 130, 60, "#ffcc00");
+            if (Math.abs(r.x + off - playerX) < 80 && Math.abs(r.y - playerY) < 50 && jumpTimer === 0) {
+                jumpTimer = 60; ramps.splice(i, 1);
+            }
+            if (r.y > 1000) ramps.splice(i,1);
+        }
+
+        for (let i = slicks.length-1; i>=0; i--) {
+            let s = slicks[i]; s.y += speed;
+            let off = (1 - (s.y / 900)) * roadCurve;
+            drawRect(s.x + off, s.y, 150, 40, "#bc00ff");
+            if (Math.abs(s.x + off - playerX) < 70 && Math.abs(s.y - playerY) < 50) {
+                slipTimer = 120; slicks.splice(i, 1);
+            }
+            if (s.y > 1000) slicks.splice(i,1);
+        }
+
+        // Night Effect (Headlights)
+        if (nightMode) {
+            ctx.save();
+            ctx.globalCompositeOperation = "destination-in";
+            let grad = ctx.createRadialGradient(playerX, playerY - 100, 50, playerX, playerY - 200, 600);
+            grad.addColorStop(0, "rgba(0,0,0,1)");
+            grad.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 1600, 900);
+            ctx.restore();
+        }
+
+        // Player Car
+        let scale = jumpTimer > 0 ? 1.5 : 1.0;
+        ctx.save();
+        ctx.translate(playerX, playerY);
+        ctx.scale(scale, scale);
+        drawRect(0, 0, 100, 180, jumpTimer > 0 ? "#fff" : "#00f2ff");
+        ctx.restore();
+
+        statText.innerText = `SCORE: ${score} | ${nightMode ? "NIGHT" : "DAY"}${slipTimer > 0 ? " | SLIPPERY!" : ""}`;
+        requestAnimationFrame(update);
+    }
+
+    window.onkeydown = (e) => {
+        if ((e.key === "ArrowLeft" || e.key === "a") && lane > 0) lane--;
+        if ((e.key === "ArrowRight" || e.key === "d") && lane < 4) lane++;
+    };
 </script>
 </body>
 </html>
