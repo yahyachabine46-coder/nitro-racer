@@ -2,24 +2,26 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Nitro Racer: Midnight Run</title>
+    <title>Nitro Racer: Turbo Night</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: sans-serif; }
         #wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 53.4vw; max-height: 100vh; max-width: 177vh; background: #050505; border: 3px solid #333; }
         canvas { width: 100%; height: 100%; display: block; }
-        .ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; }
-        button { background: #00f2ff; color: #000; border: none; padding: 25px 80px; font-size: 28px; font-weight: bold; cursor: pointer; border-radius: 15px; box-shadow: 0 0 20px #00f2ff; }
-        .stats { position: absolute; top: 20px; left: 20px; font-size: 22px; color: #00f2ff; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 2px 2px #000; }
+        .ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; }
+        button { background: #00f2ff; color: #000; border: none; padding: 25px 80px; font-size: 28px; font-weight: bold; cursor: pointer; border-radius: 15px; box-shadow: 0 0 20px #00f2ff; transition: 0.2s; }
+        button:hover { transform: scale(1.1); background: #fff; }
+        .stats { position: absolute; top: 20px; left: 20px; font-size: 24px; color: #00f2ff; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 2px 2px #000; }
     </style>
 </head>
 <body>
 
 <div id="wrapper">
-    <div class="stats" id="ui-stats">SYSTEM READY</div>
+    <div class="stats" id="ui-stats">SYSTEM START</div>
     <div id="ui-menu" class="ui">
-        <h1 id="ui-title" style="font-size: 60px; color: #00f2ff; text-shadow: 0 0 20px #00f2ff;">NITRO RACER</h1>
-        <button id="start-btn">START RACE</button>
-        <p style="margin-top:20px; color:#666;">ARROWS to steer | Night cycle active</p>
+        <h1 id="ui-title" style="font-size: 70px; color: #00f2ff; text-shadow: 0 0 30px #00f2ff; margin: 0;">NITRO RACER</h1>
+        <p style="color: #ff00ff; font-weight: bold; letter-spacing: 2px; margin-bottom: 30px;">TURBO NIGHT EDITION</p>
+        <button id="start-btn">IGNITION</button>
+        <p style="margin-top:25px; color:#666;">ARROWS to Steer | SHIFT for Nitro Exhaust</p>
     </div>
     <canvas id="stage"></canvas>
 </div>
@@ -30,117 +32,130 @@
     const menu = document.getElementById('ui-menu');
     const startBtn = document.getElementById('start-btn');
     const statText = document.getElementById('ui-stats');
+    const titleText = document.getElementById('ui-title');
 
     canvas.width = 1600; canvas.height = 900;
 
     let active = false, lane = 2, playerX = 800, playerY = 750;
-    let speed = 0, frames = 0, lives = 1, score = 0;
-    let enemies = [], ramps = [], slicks = [];
-    let roadCurve = 0, targetCurve = 0, jumpTimer = 0, slipTimer = 0;
-    
-    // Day/Night Cycle
-    let nightMode = false;
-    let cycleTimer = 0;
+    let speed = 0, frames = 0, score = 0, isNitro = false;
+    let enemies = [], roadCurve = 0, targetCurve = 0, nightMode = false, cycleTimer = 0;
 
     const LANES = [300, 550, 800, 1050, 1300];
 
-    function drawRect(x, y, w, h, color, curveShift = 0) {
+    function drawCar(x, y, color, isPlayer = false, nitroActive = false) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        // 1. Exhaust Flames (Nitro)
+        if (isPlayer && nitroActive) {
+            ctx.fillStyle = "#00f2ff";
+            ctx.shadowBlur = 20; ctx.shadowColor = "#00f2ff";
+            for(let i=0; i<3; i++) {
+                let fW = 15 + Math.random() * 20;
+                let fH = 40 + Math.random() * 60;
+                ctx.fillRect(-35 + (i*25), 80, fW, fH);
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        // 2. Headlight Beams (Night)
+        if (nightMode && (isPlayer || y < 900)) {
+            let beam = ctx.createLinearGradient(0, 0, 0, -400);
+            beam.addColorStop(0, "rgba(255, 255, 220, 0.3)");
+            beam.addColorStop(1, "rgba(255, 255, 220, 0)");
+            ctx.fillStyle = beam;
+            ctx.beginPath();
+            ctx.moveTo(-40, -60); ctx.lineTo(-120, -400); ctx.lineTo(120, -400); ctx.lineTo(40, -60);
+            ctx.fill();
+        }
+
+        // 3. Car Body (Aerodynamic)
         ctx.fillStyle = color;
-        ctx.fillRect(x - w/2 + curveShift, y - h/2, w, h);
+        ctx.beginPath();
+        ctx.moveTo(-45, 80); // Rear L
+        ctx.lineTo(-40, -40); // Side L
+        ctx.lineTo(-20, -85); // Front L
+        ctx.lineTo(20, -85);  // Front R
+        ctx.lineTo(40, -40);  // Side R
+        ctx.lineTo(45, 80);   // Rear R
+        ctx.closePath();
+        ctx.fill();
+
+        // 4. Cockpit Windshield
+        ctx.fillStyle = "#111";
+        ctx.beginPath();
+        ctx.moveTo(-30, 20); ctx.lineTo(-20, -35); ctx.lineTo(20, -35); ctx.lineTo(30, 20);
+        ctx.closePath(); ctx.fill();
+
+        // 5. Rear Spoiler
+        ctx.fillStyle = color;
+        ctx.fillRect(-52, 70, 104, 12);
+
+        // 6. Taillights
+        ctx.fillStyle = "#ff0000";
+        ctx.shadowBlur = 15; ctx.shadowColor = "#ff0000";
+        ctx.fillRect(-40, 78, 20, 6);
+        ctx.fillRect(20, 78, 20, 6);
+
+        ctx.restore();
     }
 
     startBtn.addEventListener('click', () => {
-        active = true; speed = 14; lane = 2; playerX = 800;
-        enemies = []; ramps = []; slicks = []; lives = 1; score = 0; frames = 0;
-        cycleTimer = 0; nightMode = false;
+        active = true; speed = 15; lane = 2; playerX = 800;
+        enemies = []; score = 0; frames = 0; cycleTimer = 0; nightMode = false;
         menu.style.display = 'none';
         update();
     });
 
     function update() {
         if (!active) return;
-        frames++;
-        cycleTimer++;
+        frames++; cycleTimer++;
 
-        // Shift Day/Night every 1500 frames (~45s)
-        if (cycleTimer > 1500) {
-            nightMode = !nightMode;
-            cycleTimer = 0;
-        }
-
-        // Road Curve Logic
-        if (frames % 120 === 0) targetCurve = (Math.random() - 0.5) * 80;
+        // Day/Night Logic
+        if (cycleTimer > 1500) { nightMode = !nightMode; cycleTimer = 0; }
+        if (frames % 120 === 0) targetCurve = (Math.random() - 0.5) * 85;
         roadCurve += (targetCurve - roadCurve) * 0.03;
 
-        // Base Background
+        // Draw World
         ctx.fillStyle = nightMode ? "#020205" : "#050505";
         ctx.fillRect(0, 0, 1600, 900);
         
-        // Road Perspective
-        ctx.fillStyle = nightMode ? "#0a0a0f" : "#151515";
+        // Road drawing
+        ctx.fillStyle = nightMode ? "#0a0a0f" : "#121212";
         ctx.beginPath();
         ctx.moveTo(550 + roadCurve, 0); ctx.lineTo(1050 + roadCurve, 0);
         ctx.lineTo(1550, 900); ctx.lineTo(50, 900);
         ctx.fill();
 
-        // Movement
+        // Physics
         let targetX = LANES[lane];
-        playerX += (targetX - playerX) * (slipTimer > 0 ? 0.03 : 0.15);
+        playerX += (targetX - playerX) * 0.15;
         playerX -= roadCurve * 0.07;
-        speed += 0.004;
+        
+        let currentSpeed = isNitro ? speed * 1.6 : speed;
+        speed += 0.003;
 
-        if (jumpTimer > 0) jumpTimer--;
-        if (slipTimer > 0) slipTimer--;
-
-        // Spawning
+        // Spawn Enemies
         if (Math.random() < 0.04) enemies.push({x: LANES[Math.floor(Math.random()*5)], y: -200});
-        if (Math.random() < 0.005) ramps.push({x: LANES[Math.floor(Math.random()*5)], y: -200});
-        if (Math.random() < 0.007) slicks.push({x: LANES[Math.floor(Math.random()*5)], y: -200});
 
-        // Drawing Objects (Enemies, Ramps, Slicks)
-        [...slicks, ...ramps, ...enemies].forEach(obj => {
-            obj.y += speed;
-            let off = (1 - (obj.y / 900)) * roadCurve;
-            let color = obj === enemies[0] ? "#f30" : "#ff0"; // Placeholder colors
-        });
-
-        // Process Objects with collision
         for (let i = enemies.length-1; i>=0; i--) {
-            let e = enemies[i]; e.y += speed;
+            let e = enemies[i]; e.y += currentSpeed;
             let off = (1 - (e.y / 900)) * roadCurve;
-            drawRect(e.x + off, e.y, 100, 180, "#ff3300");
-            if (jumpTimer === 0 && Math.abs(e.x + off - playerX) < 85 && Math.abs(e.y - playerY) < 130) {
-                lives--; enemies.splice(i, 1);
-                if (lives <= 0) { active = false; menu.style.display = 'flex'; }
+            drawCar(e.x + off, e.y, "#ff3300", false, false);
+            
+            // Collision
+            if (Math.abs(e.x + off - playerX) < 85 && Math.abs(e.y - playerY) < 140) {
+                active = false; menu.style.display = 'flex';
+                titleText.innerText = "CRASHED";
             }
             if (e.y > 1000) { enemies.splice(i,1); score += 100; }
         }
 
-        for (let i = ramps.length-1; i>=0; i--) {
-            let r = ramps[i]; r.y += speed;
-            let off = (1 - (r.y / 900)) * roadCurve;
-            drawRect(r.x + off, r.y, 130, 60, "#ffcc00");
-            if (Math.abs(r.x + off - playerX) < 80 && Math.abs(r.y - playerY) < 50 && jumpTimer === 0) {
-                jumpTimer = 60; ramps.splice(i, 1);
-            }
-            if (r.y > 1000) ramps.splice(i,1);
-        }
-
-        for (let i = slicks.length-1; i>=0; i--) {
-            let s = slicks[i]; s.y += speed;
-            let off = (1 - (s.y / 900)) * roadCurve;
-            drawRect(s.x + off, s.y, 150, 40, "#bc00ff");
-            if (Math.abs(s.x + off - playerX) < 70 && Math.abs(s.y - playerY) < 50) {
-                slipTimer = 120; slicks.splice(i, 1);
-            }
-            if (s.y > 1000) slicks.splice(i,1);
-        }
-
-        // Night Effect (Headlights)
+        // Night Shadow Overlay
         if (nightMode) {
             ctx.save();
             ctx.globalCompositeOperation = "destination-in";
-            let grad = ctx.createRadialGradient(playerX, playerY - 100, 50, playerX, playerY - 200, 600);
+            let grad = ctx.createRadialGradient(playerX, playerY - 150, 100, playerX, playerY - 150, 800);
             grad.addColorStop(0, "rgba(0,0,0,1)");
             grad.addColorStop(1, "rgba(0,0,0,0)");
             ctx.fillStyle = grad;
@@ -148,21 +163,19 @@
             ctx.restore();
         }
 
-        // Player Car
-        let scale = jumpTimer > 0 ? 1.5 : 1.0;
-        ctx.save();
-        ctx.translate(playerX, playerY);
-        ctx.scale(scale, scale);
-        drawRect(0, 0, 100, 180, jumpTimer > 0 ? "#fff" : "#00f2ff");
-        ctx.restore();
+        drawCar(playerX, playerY, "#00f2ff", true, isNitro);
 
-        statText.innerText = `SCORE: ${score} | ${nightMode ? "NIGHT" : "DAY"}${slipTimer > 0 ? " | SLIPPERY!" : ""}`;
+        statText.innerText = `SCORE: ${score} | ${nightMode ? "NIGHT" : "DAY"} | ${Math.round(currentSpeed * 10)} MPH`;
         requestAnimationFrame(update);
     }
 
     window.onkeydown = (e) => {
         if ((e.key === "ArrowLeft" || e.key === "a") && lane > 0) lane--;
         if ((e.key === "ArrowRight" || e.key === "d") && lane < 4) lane++;
+        if (e.key === "Shift") isNitro = true;
+    };
+    window.onkeyup = (e) => {
+        if (e.key === "Shift") isNitro = false;
     };
 </script>
 </body>
