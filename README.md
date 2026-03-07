@@ -2,213 +2,194 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Nitro Racer: Lambo Outrun</title>
+    <title>Nitro Racer: Lambo Garage</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: 'Orbitron', sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: sans-serif; }
         #wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 53.4vw; max-height: 100vh; max-width: 177vh; background: #050505; border: 3px solid #222; }
         canvas { width: 100%; height: 100%; display: block; }
-        .ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; }
-        button { background: #f1c40f; color: #000; border: none; padding: 25px 80px; font-size: 28px; font-weight: bold; cursor: pointer; border-radius: 5px; box-shadow: 0 0 30px rgba(241,196,15,0.4); transition: 0.2s; }
-        button:hover { transform: scale(1.1); background: #fff; }
+        .ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; }
+        .btn { background: #f1c40f; color: #000; border: none; padding: 15px 40px; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 5px; margin: 10px; transition: 0.2s; min-width: 250px; }
+        .btn:hover { transform: scale(1.05); background: #fff; }
         .stats { position: absolute; top: 20px; left: 20px; font-size: 24px; color: #f1c40f; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 2px 2px #000; }
+        #garage-menu { display: none; }
     </style>
 </head>
 <body>
 
 <div id="wrapper">
-    <div class="stats" id="ui-stats">V12 ENGINE READY</div>
+    <div class="stats" id="ui-stats">CASH: $0</div>
+    
     <div id="ui-menu" class="ui">
-        <h1 id="ui-title" style="font-size: 70px; color: #f1c40f; text-shadow: 0 0 30px #f1c40f; margin: 0;">NITRO RACER</h1>
-        <p style="color: #fff; font-weight: bold; letter-spacing: 5px; margin-bottom: 30px;">LAMBO EDITION</p>
-        <button id="start-btn">RACE</button>
+        <h1 style="font-size: 60px; color: #f1c40f; text-shadow: 0 0 30px #f1c40f; margin: 0;">NITRO RACER</h1>
+        <p style="letter-spacing: 5px; margin-bottom: 20px;">V12 LEGACY</p>
+        <button class="btn" onclick="startGame()">START RACE</button>
+        <button class="btn" onclick="openGarage()">GARAGE</button>
     </div>
+
+    <div id="garage-menu" class="ui">
+        <h1 style="color: #f1c40f;">GARAGE</h1>
+        <p id="garage-cash">CASH: $0</p>
+        <button class="btn" onclick="selectCar('Countach', '#fff', 0)">COUNTACH (FREE)</button>
+        <button class="btn" onclick="selectCar('Aventador', '#f1c40f', 500)">AVENTADOR ($500)</button>
+        <button class="btn" onclick="selectCar('Veneno', '#3498db', 2000)">VENENO ($2000)</button>
+        <button class="btn" style="background: #444; color: #fff;" onclick="closeGarage()">BACK</button>
+    </div>
+
     <canvas id="stage"></canvas>
 </div>
 
 <script>
     const canvas = document.getElementById('stage');
     const ctx = canvas.getContext('2d');
-    const menu = document.getElementById('ui-menu');
-    const startBtn = document.getElementById('start-btn');
     const statText = document.getElementById('ui-stats');
-    const titleText = document.getElementById('ui-title');
 
     canvas.width = 1600; canvas.height = 900;
 
+    // Game State
     let active = false, lane = 2, playerX = 800, playerY = 750;
-    let speed = 0, frames = 0, score = 0, isNitro = false;
-    let enemies = [], roadCurve = 0, targetCurve = 0, nightMode = false, cycleTimer = 0;
+    let speed = 0, frames = 0, isNitro = false, score = 0;
+    let enemies = [], roadCurve = 0, targetCurve = 0, lineOffset = 0;
 
-    const LANES = [300, 550, 800, 1050, 1300];
+    // Save Data
+    let cash = parseInt(localStorage.getItem('lambo_cash')) || 0;
+    let unlocked = JSON.parse(localStorage.getItem('lambo_unlocked')) || ['Countach'];
+    let selectedCar = { name: 'Countach', color: '#fff' };
 
-    // Audio for Horn
-    const horn = new (window.AudioContext || window.webkitAudioContext)();
-    function playHorn() {
-        const osc = horn.createOscillator();
-        const g = horn.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(440, horn.currentTime);
-        osc.connect(g); g.connect(horn.destination);
-        g.gain.setValueAtTime(0.1, horn.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.0001, horn.currentTime + 0.2);
-        osc.start(); osc.stop(horn.currentTime + 0.2);
+    function updateCashUI() {
+        statText.innerText = `CASH: $${cash}`;
+        document.getElementById('garage-cash').innerText = `CASH: $${cash}`;
+        localStorage.setItem('lambo_cash', cash);
     }
 
-    function drawLambo(x, y, color, isPlayer = false, nitroActive = false) {
+    function openGarage() {
+        document.getElementById('ui-menu').style.display = 'none';
+        document.getElementById('garage-menu').style.display = 'flex';
+        updateCashUI();
+    }
+
+    function closeGarage() {
+        document.getElementById('garage-menu').style.display = 'none';
+        document.getElementById('ui-menu').style.display = 'flex';
+    }
+
+    function selectCar(name, color, price) {
+        if (unlocked.includes(name)) {
+            selectedCar = { name, color };
+            alert(name + " Selected!");
+        } else if (cash >= price) {
+            cash -= price;
+            unlocked.push(name);
+            selectedCar = { name, color };
+            localStorage.setItem('lambo_unlocked', JSON.stringify(unlocked));
+            updateCashUI();
+            alert("Purchased " + name + "!");
+        } else {
+            alert("Not enough cash!");
+        }
+    }
+
+    function drawLambo(x, y, color, type, isPlayer, nitro) {
         ctx.save();
         ctx.translate(x, y);
 
-        // Nitro Flames
-        if (isPlayer && nitroActive) {
+        // Exhaust Flames
+        if (isPlayer && nitro) {
             ctx.fillStyle = "#3498db";
-            ctx.shadowBlur = 25; ctx.shadowColor = "#3498db";
-            for(let i=0; i<2; i++) {
-                ctx.fillRect(-35 + (i*50), 85, 20, 60 + Math.random()*40);
-            }
-            ctx.shadowBlur = 0;
+            ctx.shadowBlur = 20; ctx.shadowColor = "#3498db";
+            ctx.fillRect(-30, 85, 15, 50 + Math.random()*30);
+            ctx.fillRect(15, 85, 15, 50 + Math.random()*30);
         }
 
-        // Headlight Beams (Night)
-        if (nightMode && (isPlayer || y < 900)) {
-            let beam = ctx.createLinearGradient(0, 0, 0, -500);
-            beam.addColorStop(0, "rgba(255, 255, 255, 0.2)");
-            beam.addColorStop(1, "rgba(255, 255, 255, 0)");
-            ctx.fillStyle = beam;
-            ctx.beginPath();
-            ctx.moveTo(-50, -60); ctx.lineTo(-150, -500); ctx.lineTo(150, -500); ctx.lineTo(50, -60);
-            ctx.fill();
-        }
-
-        // --- LAMBO BODY DESIGN ---
+        // Body Shape (Lambo Wedge)
         ctx.fillStyle = color;
-        // The Wedge Shape
         ctx.beginPath();
-        ctx.moveTo(-55, 85); // Rear left
-        ctx.lineTo(-50, 20); // Side vent start
-        ctx.lineTo(-45, -60); // Front fender
-        ctx.lineTo(-25, -95); // Nose point L
-        ctx.lineTo(25, -95);  // Nose point R
-        ctx.lineTo(45, -60);  // Front fender R
-        ctx.lineTo(50, 20);   // Side vent R
-        ctx.lineTo(55, 85);   // Rear R
-        ctx.closePath();
-        ctx.fill();
-
-        // Air Intakes (Black)
-        ctx.fillStyle = "#111";
-        ctx.fillRect(-48, 10, 10, 30); // Left intake
-        ctx.fillRect(38, 10, 10, 30);  // Right intake
-
-        // Cockpit (Low profile)
-        ctx.fillStyle = "#000";
-        ctx.beginPath();
-        ctx.moveTo(-35, 15); ctx.lineTo(-25, -45); ctx.lineTo(25, -45); ctx.lineTo(35, 15);
+        ctx.moveTo(-55, 85); ctx.lineTo(-45, -90); ctx.lineTo(45, -90); ctx.lineTo(55, 85);
         ctx.closePath(); ctx.fill();
 
-        // Rear Engine Cover (Slats)
-        ctx.strokeStyle = "rgba(255,255,255,0.2)";
-        for(let i=0; i<3; i++) {
-            ctx.strokeRect(-20, 45 + (i*10), 40, 5);
+        // Cockpit
+        ctx.fillStyle = "#000";
+        ctx.fillRect(-30, -30, 60, 40);
+
+        // Veneno Wing
+        if (type === 'Veneno') {
+            ctx.fillStyle = "#111";
+            ctx.fillRect(-65, 70, 130, 15);
+            ctx.fillRect(-5, 40, 10, 40); // Central fin
         }
-
-        // Y-LED Headlights (Yellow/White)
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-40, -70); ctx.lineTo(-30, -85); ctx.lineTo(-20, -70); // Y-shape L
-        ctx.moveTo(40, -70); ctx.lineTo(30, -85); ctx.lineTo(20, -70);   // Y-shape R
-        ctx.stroke();
-
-        // Rear LED Bar
-        ctx.fillStyle = "#ff0000";
-        ctx.shadowBlur = 15; ctx.shadowColor = "#ff0000";
-        ctx.fillRect(-50, 80, 100, 4);
 
         ctx.restore();
     }
 
-    startBtn.addEventListener('click', () => {
+    function startGame() {
         active = true; speed = 18; lane = 2; playerX = 800;
-        enemies = []; score = 0; frames = 0; cycleTimer = 0;
-        menu.style.display = 'none';
+        enemies = []; frames = 0;
+        document.getElementById('ui-menu').style.display = 'none';
         update();
-    });
+    }
 
     function update() {
         if (!active) return;
-        frames++; cycleTimer++;
-
-        if (cycleTimer > 1500) { nightMode = !nightMode; cycleTimer = 0; }
+        frames++;
+        
+        // Road Logic
+        lineOffset = (lineOffset + speed) % 100;
         if (frames % 120 === 0) targetCurve = (Math.random() - 0.5) * 90;
         roadCurve += (targetCurve - roadCurve) * 0.03;
 
         // Draw Background
-        ctx.fillStyle = nightMode ? "#020205" : "#080808";
-        ctx.fillRect(0, 0, 1600, 900);
-        
-        // City Lights (Night Mode)
-        if(nightMode) {
-            ctx.fillStyle = "#f1c40f";
-            for(let i=0; i<20; i++) {
-                ctx.fillRect((i*100 + frames)%1600, 100 + Math.sin(i)*50, 2, 2);
-            }
-        }
+        ctx.fillStyle = "#080808"; ctx.fillRect(0,0,1600,900);
 
-        // Road
-        ctx.fillStyle = nightMode ? "#050508" : "#111";
+        // Draw Road
+        ctx.fillStyle = "#111";
         ctx.beginPath();
         ctx.moveTo(550 + roadCurve, 0); ctx.lineTo(1050 + roadCurve, 0);
         ctx.lineTo(1580, 900); ctx.lineTo(20, 900);
         ctx.fill();
 
-        let targetX = LANES[lane];
+        // Moving Road Lines
+        ctx.strokeStyle = "#fff"; ctx.setLineDash([40, 60]); ctx.lineWidth = 4;
+        ctx.lineDashOffset = -lineOffset;
+        for(let i=1; i<5; i++) {
+            ctx.beginPath();
+            ctx.moveTo(550 + (i*100) + roadCurve, 0);
+            ctx.lineTo(20 + (i*312), 900);
+            ctx.stroke();
+        }
+
+        // Movement
+        let targetX = [300, 550, 800, 1050, 1300][lane];
         playerX += (targetX - playerX) * 0.15;
         playerX -= roadCurve * 0.07;
-        
-        let currentSpeed = isNitro ? speed * 1.7 : speed;
-        speed += 0.003;
+        let currentSpeed = isNitro ? speed * 1.8 : speed;
+        speed += 0.002;
 
-        // Spawn
-        if (Math.random() < 0.04) enemies.push({x: LANES[Math.floor(Math.random()*5)], y: -200});
-
+        // Enemies
+        if (Math.random() < 0.04) enemies.push({x: [300, 550, 800, 1050, 1300][Math.floor(Math.random()*5)], y: -200});
         for (let i = enemies.length-1; i>=0; i--) {
             let e = enemies[i]; e.y += currentSpeed;
             let off = (1 - (e.y / 900)) * roadCurve;
-            drawLambo(e.x + off, e.y, "#e74c3c", false, false);
+            drawLambo(e.x + off, e.y, "#e74c3c", 'Countach', false, false);
             
-            // Honk logic
-            if (Math.abs(e.x + off - playerX) < 150 && Math.abs(e.y - playerY) < 300 && Math.random() < 0.01) playHorn();
-
-            // Collision
             if (Math.abs(e.x + off - playerX) < 100 && Math.abs(e.y - playerY) < 150) {
-                active = false; menu.style.display = 'flex';
-                titleText.innerText = "TOTALED";
+                active = false;
+                document.getElementById('ui-menu').style.display = 'flex';
+                updateCashUI();
             }
-            if (e.y > 1000) { enemies.splice(i,1); score += 100; }
+            if (e.y > 1000) { enemies.splice(i,1); cash += 10; updateCashUI(); }
         }
 
-        // Night Lighting
-        if (nightMode) {
-            ctx.save();
-            ctx.globalCompositeOperation = "destination-in";
-            let grad = ctx.createRadialGradient(playerX, playerY - 150, 100, playerX, playerY - 150, 800);
-            grad.addColorStop(0, "rgba(0,0,0,1)");
-            grad.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.fillStyle = grad; ctx.fillRect(0, 0, 1600, 900);
-            ctx.restore();
-        }
-
-        drawLambo(playerX, playerY, "#f1c40f", true, isNitro);
-
-        statText.innerText = `${Math.round(currentSpeed * 10)} KM/H | SCORE: ${score}`;
+        drawLambo(playerX, playerY, selectedCar.color, selectedCar.name, true, isNitro);
         requestAnimationFrame(update);
     }
 
     window.onkeydown = (e) => {
-        if ((e.key === "ArrowLeft" || e.key === "a") && lane > 0) lane--;
-        if ((e.key === "ArrowRight" || e.key === "d") && lane < 4) lane++;
+        if (e.key === "ArrowLeft" && lane > 0) lane--;
+        if (e.key === "ArrowRight" && lane < 4) lane++;
         if (e.key === "Shift") isNitro = true;
     };
     window.onkeyup = (e) => { if (e.key === "Shift") isNitro = false; };
+    
+    updateCashUI();
 </script>
 </body>
 </html>
