@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Nitro Racer: Precision Stop</title>
+    <title>Nitro Racer: Open Road</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; }
         #wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 53.4vw; max-height: 100vh; max-width: 177vh; background: #0a0a0a; border: 2px solid #333; overflow: hidden; }
@@ -22,10 +22,10 @@
 <body>
 
 <div id="wrapper">
-    <div class="stats" id="ui-stats">CASH: $0 | LVL: 1</div>
+    <div class="stats" id="ui-stats">CASH: $0 | LVL: 1 | MAX MPH: 0</div>
     <div id="ui-menu" class="ui">
         <h1>Nitro Racer</h1>
-        <p style="color: #666; margin-top: 5px;">HOLD UP TO DRIVE | SPACE TO STOP</p>
+        <p style="color: #666; margin-top: 5px;">OPEN HIGHWAY EDITION</p>
         <button class="btn" style="margin-top: 30px; width: 200px;" onclick="startGame()">Race</button>
         <button class="btn" style="margin-top: 10px; width: 200px; background: #333; color: #ccc;" onclick="openGarage()">Garage</button>
     </div>
@@ -56,7 +56,7 @@
 
     let active = false, lane = 2, playerX = 800, playerY = 780;
     let speed = 0, isNitro = false, isBraking = false, isAccelerating = false, lineOffset = 0, shake = 0;
-    let enemies = [], level = 1, finishLineY = -5000;
+    let enemies = [], level = 1, finishLineY = -8000;
     const LANES = [450, 625, 800, 975, 1150];
 
     let cash = parseInt(localStorage.getItem('lambo_cash')) || 0;
@@ -64,7 +64,8 @@
     let selectedCarIndex = 0;
 
     function updateCashUI() {
-        document.getElementById('ui-stats').innerText = `CASH: $${cash} | LVL: ${level}`;
+        const maxDisplay = isNitro ? (50 + (level * 3)) : (35 + (level * 2));
+        document.getElementById('ui-stats').innerText = `CASH: $${cash} | LVL: ${level} | TOP: ${maxDisplay*5} MPH`;
         document.getElementById('garage-cash').innerText = `TOTAL FUNDS: $${cash}`;
         localStorage.setItem('lambo_cash', cash);
         renderGarage();
@@ -104,11 +105,10 @@
     function drawRealisticCar(x, y, color, isPlayer, nitro, braking) {
         ctx.save();
         ctx.translate(x, y);
-        
         ctx.fillStyle = "rgba(0,0,0,0.4)";
         ctx.beginPath(); ctx.ellipse(0, 5, 35, 65, 0, 0, Math.PI*2); ctx.fill();
 
-        if (isPlayer && nitro && !braking) {
+        if (isPlayer && nitro && !braking && speed > 10) {
             const grad = ctx.createLinearGradient(0, 50, 0, 120);
             grad.addColorStop(0, '#fff'); grad.addColorStop(0.2, '#00d4ff'); grad.addColorStop(1, 'transparent');
             ctx.fillStyle = grad;
@@ -126,44 +126,41 @@
         ctx.fillStyle = glassGrad;
         ctx.beginPath(); ctx.moveTo(-20, -25); ctx.lineTo(20, -25); ctx.lineTo(24, 10); ctx.lineTo(-24, 10); ctx.closePath(); ctx.fill();
 
-        // Taillights flare red when braking
         ctx.fillStyle = braking ? "#ff3300" : "#900";
-        if (braking) {
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = "#ff0000";
-        }
+        if (braking) { ctx.shadowBlur = 20; ctx.shadowColor = "#ff0000"; }
         ctx.fillRect(-26, 50, 15, 6); ctx.fillRect(11, 50, 15, 6);
         ctx.shadowBlur = 0;
-
         ctx.restore();
     }
 
     function startGame() {
         active = true; speed = 0; lane = 2; playerX = LANES[2];
-        enemies = []; level = 1; finishLineY = -5000;
+        enemies = []; level = 1; finishLineY = -8000;
         document.getElementById('ui-menu').style.display = 'none';
+        updateCashUI();
         update();
     }
 
     function update() {
         if (!active) return;
         
-        // Revised Physics Engine
+        const baseCap = 35 + (level * 2);
+        const nitroCap = 50 + (level * 3);
+        const currentMax = isNitro ? nitroCap : baseCap;
+
         if (isBraking) {
-            speed -= 0.8; // Hard Braking
+            speed -= 0.8;
         } else if (isAccelerating) {
-            speed += 0.08; // Acceleration
-            if (isNitro) speed += 0.15; // Nitro Boost
+            speed += 0.12;
+            if (isNitro) speed += 0.25;
         } else {
-            speed -= 0.02; // Natural Coasting Drag
+            speed -= 0.04;
         }
         
-        // Speed Caps
-        const maxSpeed = isNitro ? 50 : 35;
-        if (speed > maxSpeed) speed = maxSpeed;
+        if (speed > currentMax) speed -= 0.15;
         if (speed < 0) speed = 0;
 
-        shake = (isNitro && isAccelerating && !isBraking) ? Math.random() * 3 - 1.5 : 0;
+        shake = (isNitro && isAccelerating && speed > 25) ? Math.random() * (speed/8) - (speed/16) : 0;
         let currentSpeed = speed;
         finishLineY += currentSpeed;
         lineOffset = (lineOffset + currentSpeed) % 100;
@@ -174,7 +171,7 @@
         ctx.fillStyle = "#151515"; ctx.fillRect(0,0,1600,900);
         ctx.fillStyle = "#1a1a1a"; ctx.fillRect(350, 0, 900, 900);
 
-        ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.setLineDash([40, 60]); ctx.lineDashOffset = -lineOffset;
+        ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.setLineDash([40, 60]); ctx.lineDashOffset = -lineOffset;
         [537, 712, 887, 1062].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 900); ctx.stroke(); });
 
         if (finishLineY > -200 && finishLineY < 1200) {
@@ -182,19 +179,22 @@
             for(let i=0; i<9; i++) for(let j=0; j<2; j++) if((i+j)%2==0) ctx.fillRect(350+(i*100), finishLineY+(j*50), 100, 50);
         }
 
-        if (finishLineY > 900) { level++; cash += 1500; finishLineY = -15000; updateCashUI(); }
+        if (finishLineY > 900) { 
+            level++; cash += 1500; 
+            finishLineY = -8000 - (level * 1500);
+            updateCashUI(); 
+        }
 
         playerX += (LANES[lane] - playerX) * 0.15;
 
-        // Enemy spawn logic only if player is moving
-        if (speed > 5 && Math.random() < 0.04 + (level * 0.005)) {
-            enemies.push({ x: LANES[Math.floor(Math.random()*5)], y: -200, color: `hsl(${Math.random()*360}, 15%, 35%)` });
+        // LESS TRAFFIC LOGIC: Reduced spawn chance significantly
+        if (speed > 5 && Math.random() < 0.02 + (level * 0.002)) {
+            enemies.push({ x: LANES[Math.floor(Math.random()*5)], y: -200, color: `hsl(${Math.random()*360}, 10%, 35%)` });
         }
 
         for (let i = enemies.length-1; i>=0; i--) {
             let e = enemies[i]; 
-            // Enemies move relative to your speed
-            e.y += (currentSpeed * 0.65);
+            e.y += (currentSpeed * 0.6);
             drawRealisticCar(e.x, e.y, e.color, false, false, false);
             
             if (Math.abs(e.x - playerX) < 55 && Math.abs(e.y - playerY) < 100) {
