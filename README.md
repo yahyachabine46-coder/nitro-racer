@@ -105,13 +105,11 @@
         ctx.save();
         ctx.translate(x, y);
         
-        // Shadow
         ctx.fillStyle = "rgba(0,0,0,0.4)";
         ctx.beginPath();
         ctx.ellipse(0, 5, 35, 65, 0, 0, Math.PI*2);
         ctx.fill();
 
-        // Nitro Exhaust Flames
         if (isPlayer && nitro) {
             const grad = ctx.createLinearGradient(0, 50, 0, 120);
             grad.addColorStop(0, '#fff'); grad.addColorStop(0.2, '#00d4ff'); grad.addColorStop(1, 'transparent');
@@ -120,25 +118,22 @@
             ctx.fillRect(10, 50, 12, 40+Math.random()*40);
         }
 
-        // Main Body (Aerodynamic shape)
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.moveTo(-28, 55); 
-        ctx.bezierCurveTo(-32, 20, -32, -20, -25, -60); // Left side
-        ctx.bezierCurveTo(-15, -75, 15, -75, 25, -60);  // Nose
-        ctx.bezierCurveTo(32, -20, 32, 20, 28, 55);    // Right side
+        ctx.bezierCurveTo(-32, 20, -32, -20, -25, -60);
+        ctx.bezierCurveTo(-15, -75, 15, -75, 25, -60);
+        ctx.bezierCurveTo(32, -20, 32, 20, 28, 55);
         ctx.closePath();
         ctx.fill();
 
-        // Body Detail Lines (Darker shade of color)
         ctx.strokeStyle = "rgba(0,0,0,0.2)";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(-18, -40); ctx.lineTo(-22, 30); // Left line
-        ctx.moveTo(18, -40); ctx.lineTo(22, 30);  // Right line
+        ctx.moveTo(-18, -40); ctx.lineTo(-22, 30);
+        ctx.moveTo(18, -40); ctx.lineTo(22, 30);
         ctx.stroke();
 
-        // Cockpit / Windshield
         const glassGrad = ctx.createLinearGradient(0, -30, 0, 10);
         glassGrad.addColorStop(0, '#111'); glassGrad.addColorStop(1, '#333');
         ctx.fillStyle = glassGrad;
@@ -148,11 +143,9 @@
         ctx.closePath();
         ctx.fill();
 
-        // Reflection on Windshield
         ctx.strokeStyle = "rgba(255,255,255,0.15)";
         ctx.beginPath(); ctx.moveTo(-15, -20); ctx.lineTo(5, 5); ctx.stroke();
 
-        // Rear Engine Deck
         ctx.fillStyle = "rgba(0,0,0,0.3)";
         ctx.fillRect(-15, 20, 30, 25);
         ctx.strokeStyle = "rgba(255,255,255,0.1)";
@@ -160,12 +153,10 @@
             ctx.beginPath(); ctx.moveTo(-12, 25+(i*7)); ctx.lineTo(12, 25+(i*7)); ctx.stroke();
         }
 
-        // Headlights (Dim)
         ctx.fillStyle = "#fffae6";
         ctx.beginPath(); ctx.ellipse(-18, -55, 4, 8, 0.2, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.ellipse(18, -55, 4, 8, -0.2, 0, Math.PI*2); ctx.fill();
 
-        // Taillights
         ctx.fillStyle = "#900";
         ctx.fillRect(-26, 50, 15, 4); ctx.fillRect(11, 50, 15, 4);
 
@@ -191,15 +182,12 @@
         ctx.save();
         ctx.translate(shake, shake);
 
-        // Asphalt Road
         ctx.fillStyle = "#151515"; ctx.fillRect(0,0,1600,900);
         ctx.fillStyle = "#1a1a1a"; ctx.fillRect(350, 0, 900, 900);
 
-        // Lane Lines (Subtle)
         ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.setLineDash([40, 60]); ctx.lineDashOffset = -lineOffset;
         [537, 712, 887, 1062].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 900); ctx.stroke(); });
 
-        // Level Up / Finish Line
         if (finishLineY > -200 && finishLineY < 1200) {
             ctx.fillStyle = "#fff";
             for(let i=0; i<9; i++) for(let j=0; j<2; j++) if((i+j)%2==0) ctx.fillRect(350+(i*100), finishLineY+(j*50), 100, 50);
@@ -218,7 +206,11 @@
             if (Math.abs(e.x - playerX) < 55 && Math.abs(e.y - playerY) < 100) {
                 active = false; document.getElementById('ui-menu').style.display = 'flex';
             }
-            if (e.y > 1000) { enemies.splice(i,1); cash += 15; updateCashUI(); }
+            if (e.y > 1000) { 
+                enemies.splice(i,1); 
+                cash += 10; // EXACTLY 10 MONEY PER CAR
+                updateCashUI(); 
+            }
         }
 
         drawRealisticCar(playerX, playerY, CAR_TYPES[selectedCarIndex].color, true, isNitro);
