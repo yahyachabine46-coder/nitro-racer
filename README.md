@@ -2,55 +2,45 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Nitro Racer: Pro Highway</title>
+    <title>Nitro Racer: optimized Garage</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; }
-        #wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 53.4vw; max-height: 100vh; max-width: 177vh; background: #0a0a0a; border: 2px solid #333; overflow: hidden; }
-        canvas { width: 100%; height: 100%; display: block; }
-        .ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; backdrop-filter: blur(10px); }
-        #garage-menu, #settings-menu { display: none; padding: 20px; }
-        .scroll-area { width: 80%; height: 55%; overflow-y: auto; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; margin: 20px 0; border: 1px solid #444; }
-        .row { display: flex; justify-content: space-between; align-items: center; background: #151515; margin-bottom: 8px; padding: 12px 20px; border-radius: 4px; }
-        .btn { background: #f1c40f; color: #000; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 3px; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px; }
-        .btn:hover { background: #fff; transform: scale(1.05); }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: sans-serif; }
+        #wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 53.4vw; max-height: 100vh; max-width: 177vh; background: #0a0a0a; overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; image-rendering: optimizeSpeed; }
+        .ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; }
+        #garage-menu, #settings-menu { display: none; }
+        .stats { position: absolute; top: 20px; left: 20px; font-size: 18px; color: #f1c40f; pointer-events: none; z-index: 10; font-weight: bold; text-shadow: 2px 2px #000; }
+        .btn { background: #f1c40f; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; margin: 5px; min-width: 120px; }
+        .btn:hover { background: #fff; }
         .btn.active { background: #3498db; color: #fff; }
-        .stats { position: absolute; top: 25px; left: 25px; font-size: 20px; color: #f1c40f; font-weight: 300; pointer-events: none; z-index: 10; }
-        input[type=range] { cursor: pointer; accent-color: #f1c40f; }
+        .scroll-area { width: 80%; height: 50%; overflow-y: auto; background: #111; border: 1px solid #333; margin: 15px 0; }
+        .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid #222; }
+        h1 { margin: 10px; letter-spacing: 5px; }
     </style>
 </head>
 <body>
 
 <div id="wrapper">
-    <div class="stats" id="ui-stats">CASH: $0 | LVL: 1 | 0 MPH</div>
+    <div class="stats" id="ui-stats">CASH: $0 | LVL: 1</div>
     
     <div id="ui-menu" class="ui">
-        <h1>Nitro Racer</h1>
-        <p style="color: #666;">HIGHWAY SIMULATOR</p>
-        <button class="btn" style="width: 200px; margin-top: 20px;" onclick="startGame()">Race</button>
-        <button class="btn" style="width: 200px; margin-top: 10px; background: #333; color: #ccc;" onclick="openGarage()">Garage</button>
-        <button class="btn" style="width: 200px; margin-top: 10px; background: #333; color: #ccc;" onclick="openSettings()">Settings</button>
-    </div>
-
-    <div id="settings-menu" class="ui">
-        <h1>Settings</h1>
-        <div class="scroll-area">
-            <div class="row">
-                <span>Speed Units</span>
-                <button id="unit-btn" class="btn" onclick="toggleUnits()">MPH</button>
-            </div>
-            <div class="row">
-                <span>Engine Pitch</span>
-                <input type="range" id="sound-range" min="100" max="1000" value="500">
-            </div>
-        </div>
-        <button class="btn" style="background: #e74c3c; color: #fff;" onclick="closeSettings()">Save & Back</button>
+        <h1>NITRO RACER</h1>
+        <button class="btn" onclick="startGame()">START RACE</button>
+        <button class="btn" onclick="openGarage()">GARAGE</button>
+        <button class="btn" onclick="openSettings()">SETTINGS</button>
     </div>
 
     <div id="garage-menu" class="ui">
-        <h1>Showroom</h1>
-        <p id="garage-cash" style="color: #f1c40f;">$0</p>
+        <h1>GARAGE</h1>
+        <p id="garage-cash" style="color:#f1c40f">$0</p>
         <div class="scroll-area" id="garage-list"></div>
-        <button class="btn" style="background: #e74c3c; color: #fff;" onclick="closeGarage()">Back</button>
+        <button class="btn" style="background:#e74c3c; color:#fff" onclick="closeGarage()">BACK</button>
+    </div>
+
+    <div id="settings-menu" class="ui">
+        <h1>SETTINGS</h1>
+        <div class="row" style="width:300px"><span>Units</span><button class="btn" id="unit-btn" onclick="toggleUnits()">MPH</button></div>
+        <button class="btn" style="background:#e74c3c; color:#fff" onclick="closeSettings()">BACK</button>
     </div>
 
     <canvas id="stage"></canvas>
@@ -58,26 +48,30 @@
 
 <script>
     const canvas = document.getElementById('stage');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 1600; canvas.height = 900;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    canvas.width = 1280; canvas.height = 720;
 
-    // Car Data
-    const carNames = ["Aventador", "Huracán", "Veneno", "Sian", "Countach", "Murciélago"];
-    const CAR_TYPES = carNames.map((name, i) => ({
-        id: i, name: name, color: `hsl(${(i * 50) % 360}, 80%, 45%)`, price: i * 500
-    }));
+    // Car Database
+    const CAR_DATA = [
+        { name: "Default", color: "#f1c40f", price: 0 },
+        { name: "Neon Blue", color: "#00d4ff", price: 200 },
+        { name: "Lava Red", color: "#ff4757", price: 500 },
+        { name: "Toxic Green", color: "#2ed573", price: 1000 },
+        { name: "Stealth Black", color: "#2f3542", price: 2500 },
+        { name: "Golden Beast", color: "#ffa502", price: 5000 }
+    ];
 
-    // State
-    let active = false, lane = 2, playerX = 800, playerY = 780;
-    let speed = 0, isNitro = false, isBraking = false, isAccelerating = false;
-    let lineOffset = 0, enemies = [], level = 1, finishLineY = -8000;
+    // Game State
+    let active = false, lane = 2, playerX = 640, playerY = 620;
+    let speed = 0, isBraking = false, isAccelerating = false;
+    let enemies = [], level = 1;
     let useKPH = localStorage.getItem('units') === 'KPH';
-    const LANES = [450, 625, 800, 975, 1150];
-
     let cash = parseInt(localStorage.getItem('lambo_cash')) || 0;
-    let unlocked = JSON.parse(localStorage.getItem('lambo_unlocked_ids')) || [0];
-    let selectedCarIndex = 0;
+    let unlocked = JSON.parse(localStorage.getItem('lambo_unlocked')) || [0];
+    let selectedCar = parseInt(localStorage.getItem('lambo_selected')) || 0;
+    const LANES = [350, 500, 640, 780, 930];
 
+    // UI Logic
     function toggleUnits() {
         useKPH = !useKPH;
         localStorage.setItem('units', useKPH ? 'KPH' : 'MPH');
@@ -86,103 +80,123 @@
 
     function openSettings() { document.getElementById('ui-menu').style.display='none'; document.getElementById('settings-menu').style.display='flex'; }
     function closeSettings() { document.getElementById('settings-menu').style.display='none'; document.getElementById('ui-menu').style.display='flex'; }
-    function openGarage() { document.getElementById('ui-menu').style.display='none'; document.getElementById('garage-menu').style.display='flex'; updateCashUI(); }
-    function closeGarage() { document.getElementById('garage-menu').style.display='none'; document.getElementById('ui-menu').style.display='flex'; }
 
-    function updateCashUI() {
-        const factor = useKPH ? 8 : 5;
-        const unitLabel = useKPH ? 'KPH' : 'MPH';
-        document.getElementById('ui-stats').innerText = `CASH: $${cash} | LVL: ${level} | ${Math.round(speed * factor)} ${unitLabel}`;
-        document.getElementById('garage-cash').innerText = `TOTAL FUNDS: $${cash}`;
-        localStorage.setItem('lambo_cash', cash);
-        renderGarage();
+    function openGarage() {
+        document.getElementById('ui-menu').style.display='none';
+        document.getElementById('garage-menu').style.display='flex';
+        updateGarageUI();
     }
 
-    function renderGarage() {
+    function closeGarage() {
+        document.getElementById('garage-menu').style.display='none';
+        document.getElementById('ui-menu').style.display='flex';
+    }
+
+    function updateGarageUI() {
+        document.getElementById('garage-cash').innerText = `CASH: $${cash}`;
         const list = document.getElementById('garage-list');
         list.innerHTML = '';
-        CAR_TYPES.forEach((car, i) => {
-            const isUnlocked = unlocked.includes(i);
-            list.innerHTML += `<div class="row">
-                <span>${car.name}</span>
-                <button class="btn ${selectedCarIndex === i ? 'active' : ''}" onclick="selectCar(${i})">
-                ${selectedCarIndex === i ? 'Selected' : (isUnlocked ? 'Select' : '$'+car.price)}</button>
-            </div>`;
+        CAR_DATA.forEach((car, i) => {
+            const isOwned = unlocked.includes(i);
+            const isSelected = selectedCar === i;
+            list.innerHTML += `
+                <div class="row">
+                    <div style="display:flex; align-items:center;">
+                        <div style="width:20px; height:20px; background:${car.color}; margin-right:10px; border:1px solid #555;"></div>
+                        <span>${car.name}</span>
+                    </div>
+                    <button class="btn ${isSelected ? 'active' : ''}" onclick="buyOrSelectCar(${i})">
+                        ${isSelected ? 'SELECTED' : (isOwned ? 'SELECT' : '$' + car.price)}
+                    </button>
+                </div>`;
         });
     }
 
-    function selectCar(i) {
-        if (unlocked.includes(i)) selectedCarIndex = i;
-        else if (cash >= CAR_TYPES[i].price) { cash -= CAR_TYPES[i].price; unlocked.push(i); selectedCarIndex = i; }
-        updateCashUI();
+    function buyOrSelectCar(i) {
+        if (unlocked.includes(i)) {
+            selectedCar = i;
+            localStorage.setItem('lambo_selected', i);
+        } else if (cash >= CAR_DATA[i].price) {
+            cash -= CAR_DATA[i].price;
+            unlocked.push(i);
+            selectedCar = i;
+            localStorage.setItem('lambo_unlocked', JSON.stringify(unlocked));
+            localStorage.setItem('lambo_selected', i);
+            localStorage.setItem('lambo_cash', cash);
+        }
+        updateGarageUI();
     }
 
+    // HUD Update (Low Frequency)
+    setInterval(() => {
+        if (!active) return;
+        const factor = useKPH ? 8 : 5;
+        const unit = useKPH ? 'KPH' : 'MPH';
+        document.getElementById('ui-stats').innerText = `CASH: $${cash} | LVL: ${level} | ${Math.round(speed * factor)} ${unit}`;
+    }, 200);
+
+    // Renderer
     function drawCar(x, y, color, braking) {
-        ctx.save();
-        ctx.translate(x, y);
-        // Body
         ctx.fillStyle = color;
-        ctx.beginPath(); ctx.moveTo(-28, 55); ctx.bezierCurveTo(-32, 20, -32, -20, -25, -60);
-        ctx.bezierCurveTo(25, -60, 32, 20, 28, 55); ctx.fill();
-        // Glass
-        ctx.fillStyle = "#111";
-        ctx.fillRect(-20, -25, 40, 30);
-        // Brake Lights
-        ctx.fillStyle = braking ? "#ff0000" : "#600";
-        if(braking) ctx.shadowBlur = 15, ctx.shadowColor = "red";
-        ctx.fillRect(-26, 50, 15, 6); ctx.fillRect(11, 50, 15, 6);
-        ctx.restore();
+        ctx.fillRect(x - 25, y - 50, 50, 100);
+        if (braking) {
+            ctx.fillStyle = "#ff0000";
+            ctx.fillRect(x - 22, y + 40, 10, 5);
+            ctx.fillRect(x + 12, y + 40, 10, 5);
+        }
+        ctx.fillStyle = "#111"; // Cockpit
+        ctx.fillRect(x - 18, y - 30, 36, 25);
     }
 
     function startGame() {
         active = true; speed = 0; enemies = []; 
         document.getElementById('ui-menu').style.display = 'none';
-        update();
+        requestAnimationFrame(update);
     }
 
     function update() {
         if (!active) return;
 
-        // Physics
-        if (isBraking) speed -= 0.6;
-        else if (isAccelerating) speed += 0.1;
-        else speed -= 0.03;
-        speed = Math.max(0, Math.min(speed, 40 + level * 2));
+        if (isBraking) speed -= 0.5;
+        else if (isAccelerating) speed += 0.08;
+        else speed -= 0.02;
+        speed = Math.max(0, Math.min(speed, 35 + level));
 
-        lineOffset = (lineOffset + speed) % 100;
-        finishLineY += speed;
-
-        // Road
-        ctx.fillStyle = "#151515"; ctx.fillRect(0,0,1600,900);
-        ctx.fillStyle = "#1a1a1a"; ctx.fillRect(350, 0, 900, 900);
-        ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.setLineDash([40, 60]); ctx.lineDashOffset = -lineOffset;
-        [537, 712, 887, 1062].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 900); ctx.stroke(); });
-
-        // Traffic
-        if (Math.random() < 0.02) enemies.push({ x: LANES[Math.floor(Math.random()*5)], y: -200, baseSpeed: 15 + Math.random()*10 });
-
-        for (let i = enemies.length-1; i>=0; i--) {
-            let e = enemies[i];
-            // Independent movement: Enemy moves relative to their own speed vs yours
-            e.y += (speed - e.baseSpeed) * -1; 
-            drawCar(e.x, e.y, "#444", false);
-            
-            if (Math.abs(e.x - playerX) < 50 && Math.abs(e.y - playerY) < 100) {
-                active = false; document.getElementById('ui-menu').style.display = 'flex';
-            }
-            if (e.y > 1000) { enemies.splice(i,1); cash += 10; updateCashUI(); }
+        // Background
+        ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0, 0, 1280, 720);
+        ctx.fillStyle = "#333"; ctx.fillRect(300, 0, 680, 720);
+        
+        // Traffic Logic
+        if (Math.random() < 0.015) {
+            enemies.push({ x: LANES[Math.floor(Math.random()*5)], y: -150, bSpeed: 12 + Math.random()*8 });
         }
 
-        playerX += (LANES[lane] - playerX) * 0.15;
-        drawCar(playerX, playerY, CAR_TYPES[selectedCarIndex].color, isBraking);
-        
-        updateCashUI();
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let e = enemies[i];
+            e.y += (speed - e.bSpeed);
+            drawCar(e.x, e.y, "#555", false);
+
+            if (Math.abs(e.x - playerX) < 45 && Math.abs(e.y - playerY) < 90) {
+                active = false;
+                localStorage.setItem('lambo_cash', cash);
+                document.getElementById('ui-menu').style.display = 'flex';
+            }
+            if (e.y > 850 || e.y < -400) { 
+                if(e.y > 850) { cash += 10; }
+                enemies.splice(i, 1); 
+            }
+        }
+
+        playerX += (LANES[lane] - playerX) * 0.1;
+        drawCar(playerX, playerY, CAR_DATA[selectedCar].color, isBraking);
+
         requestAnimationFrame(update);
     }
 
+    // Input
     window.onkeydown = (e) => {
-        if (e.key === "ArrowLeft") if(lane>0) lane--;
-        if (e.key === "ArrowRight") if(lane<4) lane--;
+        if (e.key === "ArrowLeft" && lane > 0) lane--;
+        if (e.key === "ArrowRight" && lane < 4) lane++;
         if (e.key === "ArrowUp") isAccelerating = true;
         if (e.key === " ") isBraking = true;
     };
@@ -191,8 +205,7 @@
         if (e.key === " ") isBraking = false;
     };
 
-    document.getElementById('unit-btn').innerText = useKPH ? 'KPH' : 'MPH';
-    updateCashUI();
+    document.getElementById('ui-stats').innerText = `CASH: $${cash} | LVL: ${level}`;
 </script>
 </body>
 </html>
