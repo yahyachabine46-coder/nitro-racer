@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Nitro Racer: Realism Edition</title>
+    <title>Nitro Racer: Space Brakes</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; }
         #wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 53.4vw; max-height: 100vh; max-width: 177vh; background: #0a0a0a; border: 2px solid #333; overflow: hidden; }
@@ -55,7 +55,7 @@
     }
 
     let active = false, lane = 2, playerX = 800, playerY = 780;
-    let speed = 0, isNitro = false, lineOffset = 0, shake = 0;
+    let speed = 0, isNitro = false, isBraking = false, lineOffset = 0, shake = 0;
     let enemies = [], level = 1, finishLineY = -5000;
     const LANES = [450, 625, 800, 975, 1150];
 
@@ -101,7 +101,7 @@
     function openGarage() { document.getElementById('ui-menu').style.display='none'; document.getElementById('garage-menu').style.display='flex'; updateCashUI(); }
     function closeGarage() { document.getElementById('garage-menu').style.display='none'; document.getElementById('ui-menu').style.display='flex'; }
 
-    function drawRealisticCar(x, y, color, isPlayer, nitro) {
+    function drawRealisticCar(x, y, color, isPlayer, nitro, braking) {
         ctx.save();
         ctx.translate(x, y);
         
@@ -110,7 +110,7 @@
         ctx.ellipse(0, 5, 35, 65, 0, 0, Math.PI*2);
         ctx.fill();
 
-        if (isPlayer && nitro) {
+        if (isPlayer && nitro && !braking) {
             const grad = ctx.createLinearGradient(0, 50, 0, 120);
             grad.addColorStop(0, '#fff'); grad.addColorStop(0.2, '#00d4ff'); grad.addColorStop(1, 'transparent');
             ctx.fillStyle = grad;
@@ -143,22 +143,14 @@
         ctx.closePath();
         ctx.fill();
 
-        ctx.strokeStyle = "rgba(255,255,255,0.15)";
-        ctx.beginPath(); ctx.moveTo(-15, -20); ctx.lineTo(5, 5); ctx.stroke();
-
         ctx.fillStyle = "rgba(0,0,0,0.3)";
         ctx.fillRect(-15, 20, 30, 25);
-        ctx.strokeStyle = "rgba(255,255,255,0.1)";
-        for(let i=0; i<3; i++) {
-            ctx.beginPath(); ctx.moveTo(-12, 25+(i*7)); ctx.lineTo(12, 25+(i*7)); ctx.stroke();
-        }
 
-        ctx.fillStyle = "#fffae6";
-        ctx.beginPath(); ctx.ellipse(-18, -55, 4, 8, 0.2, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(18, -55, 4, 8, -0.2, 0, Math.PI*2); ctx.fill();
-
-        ctx.fillStyle = "#900";
-        ctx.fillRect(-26, 50, 15, 4); ctx.fillRect(11, 50, 15, 4);
+        // Taillights / Brake Lights
+        ctx.fillStyle = braking ? "#ff0000" : "#900";
+        if (braking) ctx.shadowBlur = 15, ctx.shadowColor = "red";
+        ctx.fillRect(-26, 50, 15, 6); ctx.fillRect(11, 50, 15, 6);
+        ctx.shadowBlur = 0;
 
         ctx.restore();
     }
@@ -173,9 +165,20 @@
     function update() {
         if (!active) return;
         
-        if (isNitro) shake = Math.random() * 4 - 2; else shake = 0;
+        // Speed Logic
+        if (isBraking) {
+            speed -= 0.5;
+            if (speed < 5) speed = 5; // Minimum crawl speed
+        } else if (isNitro) {
+            speed += 0.05;
+            if (speed > 45) speed = 45;
+        } else {
+            speed += 0.002;
+            if (speed > 30) speed = 30;
+        }
 
-        let currentSpeed = isNitro ? speed * 1.7 : speed;
+        shake = (isNitro && !isBraking) ? Math.random() * 4 - 2 : 0;
+        let currentSpeed = speed;
         finishLineY += currentSpeed;
         lineOffset = (lineOffset + currentSpeed) % 100;
 
@@ -196,24 +199,21 @@
         if (finishLineY > 900) { level++; cash += 1500; finishLineY = -15000; updateCashUI(); }
 
         playerX += (LANES[lane] - playerX) * 0.15;
-        speed += 0.002;
 
-        if (Math.random() < 0.05) enemies.push({ x: LANES[Math.floor(Math.random()*5)], y: -200, color: `hsl(${Math.random()*360}, 10%, 40%)` });
+        if (Math.random() < 0.04 + (level * 0.005)) {
+            enemies.push({ x: LANES[Math.floor(Math.random()*5)], y: -200, color: `hsl(${Math.random()*360}, 15%, 35%)` });
+        }
 
         for (let i = enemies.length-1; i>=0; i--) {
-            let e = enemies[i]; e.y += currentSpeed * 0.65;
-            drawRealisticCar(e.x, e.y, e.color, false, false);
+            let e = enemies[i]; e.y += currentSpeed * 0.6;
+            drawRealisticCar(e.x, e.y, e.color, false, false, false);
             if (Math.abs(e.x - playerX) < 55 && Math.abs(e.y - playerY) < 100) {
                 active = false; document.getElementById('ui-menu').style.display = 'flex';
             }
-            if (e.y > 1000) { 
-                enemies.splice(i,1); 
-                cash += 10; // EXACTLY 10 MONEY PER CAR
-                updateCashUI(); 
-            }
+            if (e.y > 1000) { enemies.splice(i,1); cash += 10; updateCashUI(); }
         }
 
-        drawRealisticCar(playerX, playerY, CAR_TYPES[selectedCarIndex].color, true, isNitro);
+        drawRealisticCar(playerX, playerY, CAR_TYPES[selectedCarIndex].color, true, isNitro, isBraking);
         
         ctx.restore();
         requestAnimationFrame(update);
@@ -223,8 +223,12 @@
         if ((e.key === "ArrowLeft" || e.key === "a") && lane > 0) lane--;
         if ((e.key === "ArrowRight" || e.key === "d") && lane < 4) lane++;
         if (e.key === "Shift") isNitro = true;
+        if (e.key === " ") isBraking = true;
     };
-    window.onkeyup = (e) => { if (e.key === "Shift") isNitro = false; };
+    window.onkeyup = (e) => { 
+        if (e.key === "Shift") isNitro = false;
+        if (e.key === " ") isBraking = false;
+    };
     
     updateCashUI();
 </script>
