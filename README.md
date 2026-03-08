@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Nitro Racer: Manual Throttle</title>
+    <title>Nitro Racer: Precision Stop</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; }
         #wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 53.4vw; max-height: 100vh; max-width: 177vh; background: #0a0a0a; border: 2px solid #333; overflow: hidden; }
@@ -25,7 +25,7 @@
     <div class="stats" id="ui-stats">CASH: $0 | LVL: 1</div>
     <div id="ui-menu" class="ui">
         <h1>Nitro Racer</h1>
-        <p style="color: #666; margin-top: 5px;">MANUAL THROTTLE EDITION</p>
+        <p style="color: #666; margin-top: 5px;">HOLD UP TO DRIVE | SPACE TO STOP</p>
         <button class="btn" style="margin-top: 30px; width: 200px;" onclick="startGame()">Race</button>
         <button class="btn" style="margin-top: 10px; width: 200px; background: #333; color: #ccc;" onclick="openGarage()">Garage</button>
     </div>
@@ -126,8 +126,12 @@
         ctx.fillStyle = glassGrad;
         ctx.beginPath(); ctx.moveTo(-20, -25); ctx.lineTo(20, -25); ctx.lineTo(24, 10); ctx.lineTo(-24, 10); ctx.closePath(); ctx.fill();
 
-        ctx.fillStyle = braking ? "#ff0000" : "#900";
-        if (braking) ctx.shadowBlur = 15, ctx.shadowColor = "red";
+        // Taillights flare red when braking
+        ctx.fillStyle = braking ? "#ff3300" : "#900";
+        if (braking) {
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#ff0000";
+        }
         ctx.fillRect(-26, 50, 15, 6); ctx.fillRect(11, 50, 15, 6);
         ctx.shadowBlur = 0;
 
@@ -135,7 +139,7 @@
     }
 
     function startGame() {
-        active = true; speed = 10; lane = 2; playerX = LANES[2];
+        active = true; speed = 0; lane = 2; playerX = LANES[2];
         enemies = []; level = 1; finishLineY = -5000;
         document.getElementById('ui-menu').style.display = 'none';
         update();
@@ -144,24 +148,22 @@
     function update() {
         if (!active) return;
         
-        // Manual Throttle Logic
+        // Revised Physics Engine
         if (isBraking) {
-            speed -= 0.6;
-        } else if (isNitro) {
-            speed += 0.08;
-            if (speed > 48) speed = 48;
+            speed -= 0.8; // Hard Braking
         } else if (isAccelerating) {
-            speed += 0.04;
-            if (speed > 32) speed = 32;
+            speed += 0.08; // Acceleration
+            if (isNitro) speed += 0.15; // Nitro Boost
         } else {
-            // Natural drag/slow down when not accelerating
-            speed -= 0.01;
-            if (speed < 12) speed = 12; // Base cruise speed
+            speed -= 0.02; // Natural Coasting Drag
         }
         
+        // Speed Caps
+        const maxSpeed = isNitro ? 50 : 35;
+        if (speed > maxSpeed) speed = maxSpeed;
         if (speed < 0) speed = 0;
 
-        shake = (isNitro && !isBraking) ? Math.random() * 4 - 2 : 0;
+        shake = (isNitro && isAccelerating && !isBraking) ? Math.random() * 3 - 1.5 : 0;
         let currentSpeed = speed;
         finishLineY += currentSpeed;
         lineOffset = (lineOffset + currentSpeed) % 100;
@@ -172,7 +174,7 @@
         ctx.fillStyle = "#151515"; ctx.fillRect(0,0,1600,900);
         ctx.fillStyle = "#1a1a1a"; ctx.fillRect(350, 0, 900, 900);
 
-        ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.setLineDash([40, 60]); ctx.lineDashOffset = -lineOffset;
+        ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.setLineDash([40, 60]); ctx.lineDashOffset = -lineOffset;
         [537, 712, 887, 1062].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 900); ctx.stroke(); });
 
         if (finishLineY > -200 && finishLineY < 1200) {
@@ -184,13 +186,17 @@
 
         playerX += (LANES[lane] - playerX) * 0.15;
 
-        if (Math.random() < 0.04 + (level * 0.005)) {
+        // Enemy spawn logic only if player is moving
+        if (speed > 5 && Math.random() < 0.04 + (level * 0.005)) {
             enemies.push({ x: LANES[Math.floor(Math.random()*5)], y: -200, color: `hsl(${Math.random()*360}, 15%, 35%)` });
         }
 
         for (let i = enemies.length-1; i>=0; i--) {
-            let e = enemies[i]; e.y += currentSpeed * 0.6;
+            let e = enemies[i]; 
+            // Enemies move relative to your speed
+            e.y += (currentSpeed * 0.65);
             drawRealisticCar(e.x, e.y, e.color, false, false, false);
+            
             if (Math.abs(e.x - playerX) < 55 && Math.abs(e.y - playerY) < 100) {
                 active = false; document.getElementById('ui-menu').style.display = 'flex';
             }
