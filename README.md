@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Nitro Racer: Space Brakes</title>
+    <title>Nitro Racer: Manual Throttle</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; }
         #wrapper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 53.4vw; max-height: 100vh; max-width: 177vh; background: #0a0a0a; border: 2px solid #333; overflow: hidden; }
@@ -25,7 +25,7 @@
     <div class="stats" id="ui-stats">CASH: $0 | LVL: 1</div>
     <div id="ui-menu" class="ui">
         <h1>Nitro Racer</h1>
-        <p style="color: #666; margin-top: 5px;">SUPERCAR SIMULATOR</p>
+        <p style="color: #666; margin-top: 5px;">MANUAL THROTTLE EDITION</p>
         <button class="btn" style="margin-top: 30px; width: 200px;" onclick="startGame()">Race</button>
         <button class="btn" style="margin-top: 10px; width: 200px; background: #333; color: #ccc;" onclick="openGarage()">Garage</button>
     </div>
@@ -55,7 +55,7 @@
     }
 
     let active = false, lane = 2, playerX = 800, playerY = 780;
-    let speed = 0, isNitro = false, isBraking = false, lineOffset = 0, shake = 0;
+    let speed = 0, isNitro = false, isBraking = false, isAccelerating = false, lineOffset = 0, shake = 0;
     let enemies = [], level = 1, finishLineY = -5000;
     const LANES = [450, 625, 800, 975, 1150];
 
@@ -106,47 +106,26 @@
         ctx.translate(x, y);
         
         ctx.fillStyle = "rgba(0,0,0,0.4)";
-        ctx.beginPath();
-        ctx.ellipse(0, 5, 35, 65, 0, 0, Math.PI*2);
-        ctx.fill();
+        ctx.beginPath(); ctx.ellipse(0, 5, 35, 65, 0, 0, Math.PI*2); ctx.fill();
 
         if (isPlayer && nitro && !braking) {
             const grad = ctx.createLinearGradient(0, 50, 0, 120);
             grad.addColorStop(0, '#fff'); grad.addColorStop(0.2, '#00d4ff'); grad.addColorStop(1, 'transparent');
             ctx.fillStyle = grad;
-            ctx.fillRect(-22, 50, 12, 40+Math.random()*40);
-            ctx.fillRect(10, 50, 12, 40+Math.random()*40);
+            ctx.fillRect(-22, 50, 12, 40+Math.random()*40); ctx.fillRect(10, 50, 12, 40+Math.random()*40);
         }
 
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(-28, 55); 
-        ctx.bezierCurveTo(-32, 20, -32, -20, -25, -60);
-        ctx.bezierCurveTo(-15, -75, 15, -75, 25, -60);
-        ctx.bezierCurveTo(32, -20, 32, 20, 28, 55);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.strokeStyle = "rgba(0,0,0,0.2)";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(-18, -40); ctx.lineTo(-22, 30);
-        ctx.moveTo(18, -40); ctx.lineTo(22, 30);
-        ctx.stroke();
+        ctx.moveTo(-28, 55); ctx.bezierCurveTo(-32, 20, -32, -20, -25, -60);
+        ctx.bezierCurveTo(-15, -75, 15, -75, 25, -60); ctx.bezierCurveTo(32, -20, 32, 20, 28, 55);
+        ctx.closePath(); ctx.fill();
 
         const glassGrad = ctx.createLinearGradient(0, -30, 0, 10);
         glassGrad.addColorStop(0, '#111'); glassGrad.addColorStop(1, '#333');
         ctx.fillStyle = glassGrad;
-        ctx.beginPath();
-        ctx.moveTo(-20, -25); ctx.lineTo(20, -25);
-        ctx.lineTo(24, 10); ctx.lineTo(-24, 10);
-        ctx.closePath();
-        ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-20, -25); ctx.lineTo(20, -25); ctx.lineTo(24, 10); ctx.lineTo(-24, 10); ctx.closePath(); ctx.fill();
 
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
-        ctx.fillRect(-15, 20, 30, 25);
-
-        // Taillights / Brake Lights
         ctx.fillStyle = braking ? "#ff0000" : "#900";
         if (braking) ctx.shadowBlur = 15, ctx.shadowColor = "red";
         ctx.fillRect(-26, 50, 15, 6); ctx.fillRect(11, 50, 15, 6);
@@ -156,7 +135,7 @@
     }
 
     function startGame() {
-        active = true; speed = 20; lane = 2; playerX = LANES[2];
+        active = true; speed = 10; lane = 2; playerX = LANES[2];
         enemies = []; level = 1; finishLineY = -5000;
         document.getElementById('ui-menu').style.display = 'none';
         update();
@@ -165,17 +144,22 @@
     function update() {
         if (!active) return;
         
-        // Speed Logic
+        // Manual Throttle Logic
         if (isBraking) {
-            speed -= 0.5;
-            if (speed < 5) speed = 5; // Minimum crawl speed
+            speed -= 0.6;
         } else if (isNitro) {
-            speed += 0.05;
-            if (speed > 45) speed = 45;
+            speed += 0.08;
+            if (speed > 48) speed = 48;
+        } else if (isAccelerating) {
+            speed += 0.04;
+            if (speed > 32) speed = 32;
         } else {
-            speed += 0.002;
-            if (speed > 30) speed = 30;
+            // Natural drag/slow down when not accelerating
+            speed -= 0.01;
+            if (speed < 12) speed = 12; // Base cruise speed
         }
+        
+        if (speed < 0) speed = 0;
 
         shake = (isNitro && !isBraking) ? Math.random() * 4 - 2 : 0;
         let currentSpeed = speed;
@@ -222,10 +206,12 @@
     window.onkeydown = (e) => {
         if ((e.key === "ArrowLeft" || e.key === "a") && lane > 0) lane--;
         if ((e.key === "ArrowRight" || e.key === "d") && lane < 4) lane++;
+        if (e.key === "ArrowUp" || e.key === "w") isAccelerating = true;
         if (e.key === "Shift") isNitro = true;
         if (e.key === " ") isBraking = true;
     };
     window.onkeyup = (e) => { 
+        if (e.key === "ArrowUp" || e.key === "w") isAccelerating = false;
         if (e.key === "Shift") isNitro = false;
         if (e.key === " ") isBraking = false;
     };
